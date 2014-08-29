@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # this script is used to rebuild all QEMU binaries for the host
 # platforms.
@@ -54,7 +54,7 @@ case $HOST_OS in
     Linux)
         HOST_NUM_CPUS=`cat /proc/cpuinfo | grep processor | wc -l`
         ;;
-    Darwin|FreeBsd)
+    Darwin|FreeBSD)
         HOST_NUM_CPUS=`sysctl -n hw.ncpu`
         ;;
     CYGWIN*|*_NT-*)
@@ -71,8 +71,15 @@ echo "Configuring build."
 run ./android-configure.sh --out-dir=$OUT_DIR "$@" ||
     panic "Configuration error, please run ./android-configure.sh to see why."
 
+case $HOST_OS in
+	FreeBSD)
+		mkdir -p objs/libs
+		cp ./distrib/sdl-1.2.15/objs/libs/libSDL* objs/libs
+	;;
+esac
+
 echo "Building sources."
-run make -j$HOST_NUM_CPUS OBJS_DIR="$OUT_DIR" ||
+run gmake -j$HOST_NUM_CPUS OBJS_DIR="$OUT_DIR" ||
     panic "Could not build sources, please run 'make' to see why."
 
 RUN_64BIT_TESTS=true
@@ -96,15 +103,19 @@ if [ -z "$NO_TESTS" ]; then
     echo "Running 32-bit unit test suite."
     FAILURES=""
     for UNIT_TEST in emulator_unittests emugl_common_host_unittests; do
-    echo "   - $UNIT_TEST"
-    run $TEST_SHELL $OUT_DIR/$UNIT_TEST$EXE_SUFFIX || FAILURES="$FAILURES $UNIT_TEST"
+		if [ -e $OUT_DIR/$UNIT_TEST ]; then
+			echo "   - $UNIT_TEST"
+			run $TEST_SHELL $OUT_DIR/$UNIT_TEST$EXE_SUFFIX || FAILURES="$FAILURES $UNIT_TEST"
+		fi
     done
 
     if [ "$RUN_64BIT_TESTS" ]; then
         echo "Running 64-bit unit test suite."
         for UNIT_TEST in emulator64_unittests emugl64_common_host_unittests; do
-            echo "   - $UNIT_TEST"
-            run $TEST_SHELL $OUT_DIR/$UNIT_TEST$EXE_SUFFIX || FAILURES="$FAILURES $UNIT_TEST"
+			if [ -e $OUT_DIR/$UNIT_TEST$EXE_SUFFIX ]; then
+				echo "   - $UNIT_TEST"
+				run $TEST_SHELL $OUT_DIR/$UNIT_TEST$EXE_SUFFIX || FAILURES="$FAILURES $UNIT_TEST"
+			fi
         done
     fi
 

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/local/bin/bash
 #
 # Copyright (C) 2008 The Android Open Source Project
 #

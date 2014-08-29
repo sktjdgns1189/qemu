@@ -21,6 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+#ifdef __FreeBSD__
+#define __BSD_VISIBLE 1
+#endif
+
 #include "qemu-common.h"
 #include "android/sockets.h"
 #include "net/net.h"

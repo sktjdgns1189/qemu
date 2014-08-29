@@ -34,6 +34,7 @@
 #define _IP_H_
 
 #include "helper.h"
+#include "qemu-common.h"
 
 #ifdef HOST_WORDS_BIGENDIAN
 # ifndef NTOHL

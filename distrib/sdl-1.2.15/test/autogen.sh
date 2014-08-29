@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/local/bin/bash
 #
 # Regenerate configuration files
 cp acinclude.m4 aclocal.m4

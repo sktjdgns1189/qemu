@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /usr/local/bin/bash
 # Attempt to guess a canonical system name.
 #   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
 #   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
@@ -864,7 +864,7 @@ EOF
 	  EV67)  UNAME_MACHINE=alphaev67 ;;
 	  EV68*) UNAME_MACHINE=alphaev68 ;;
         esac
-	objdump --private-headers /bin/sh | grep -q ld.so.1
+	objdump --private-headers /usr/local/bin/bash | grep -q ld.so.1
 	if test "$?" = 0 ; then LIBC="libc1" ; else LIBC="" ; fi
 	echo ${UNAME_MACHINE}-unknown-linux-gnu${LIBC}
 	exit ;;

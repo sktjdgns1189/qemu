@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/local/bin/bash
 # finish up the installation
 # this script should be executed using the sudo command
 # this file is copied to SDL-devel.post_install and SDL-devel.post_upgrade

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This script is used to rebuild all emulator binaries from sources
 # and package them for easier distribution.
@@ -424,7 +424,7 @@ EOF
 
     dump "[$PKG_NAME] Generating rebuild script."
     cat > "$BUILD_DIR"/rebuild.sh <<EOF
-#!/bin/sh
+#!/usr/local/bin/bash
 
 # Auto-generated script used to rebuild the Android emulator binaries
 # from sources. Note that this does not include the GLES emulation

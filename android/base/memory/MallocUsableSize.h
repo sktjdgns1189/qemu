@@ -26,9 +26,12 @@
 #if defined(__GLIBC__)
 #  include <malloc.h>
 #  define USE_MALLOC_USABLE_SIZE  1
-#elif defined(__APPLE__) || defined(__FreeBSD__)
+#elif defined(__APPLE__)
 #  include <malloc/malloc.h>
 #  define malloc_usable_size  malloc_size
+#  define USE_MALLOC_USABLE_SIZE  1
+#elif defined(__FreeBSD__)
+#  include <malloc_np.h>
 #  define USE_MALLOC_USABLE_SIZE  1
 #else
 #  define USE_MALLOC_USABLE_SIZE  0

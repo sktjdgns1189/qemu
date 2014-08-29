@@ -25,6 +25,7 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#include "qemu-common.h"
 #ifdef __OpenBSD__
 #include <soundcard.h>
 #else

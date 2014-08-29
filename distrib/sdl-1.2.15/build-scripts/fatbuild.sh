@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/local/bin/bash
 #
 # Build a fat binary on Mac OS X, thanks Ryan!
 

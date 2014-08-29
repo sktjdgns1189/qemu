@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /usr/local/bin/bash
 
 # ltconfig - Create a system-specific libtool.
 # Copyright (C) 1996-1998 Free Software Foundation, Inc.
@@ -1312,7 +1312,7 @@ trap "$rm $ofile; exit 1" 1 2 15
 echo creating $ofile
 $rm $ofile
 cat <<EOF > $ofile
-#! /bin/sh
+#! /usr/local/bin/bash
 
 # libtool - Provide generalized library-building support services.
 # Generated automatically by $PROGRAM - GNU $PACKAGE $VERSION
@@ -1364,7 +1364,7 @@ echo="$ltecho"
 LTCONFIG_VERSION="$VERSION"
 
 # Shell to use when invoking shell scripts.
-SHELL=${CONFIG_SHELL-/bin/sh}
+SHELL=${CONFIG_SHELL-/usr/local/bin/bash}
 
 # Whether or not to build libtool libraries.
 build_libtool_libs=$enable_shared

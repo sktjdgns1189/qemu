@@ -258,7 +258,9 @@ EMULATOR_LIBUI_LDLIBS += $(SDL_LDLIBS)
 
 # The following is needed by SDL_LoadObject
 ifneq ($(HOST_OS),windows)
+ifneq ($(HOST_OS),freebsd)
     EMULATOR_LIBUI_LDLIBS += -ldl
+endif
 endif
 
 # the skin support sources
@@ -398,7 +400,9 @@ common_LOCAL_SRC_FILES += \
 
 # other flags
 ifneq ($(HOST_OS),windows)
+ifneq ($(HOST_OS),freebsd)
     AUDIO_LDLIBS += -ldl
+endif
 else
 endif
 
@@ -505,6 +509,12 @@ ifeq ($(HOST_OS),darwin)
   CORE_MISC_SOURCES   += android/camera/camera-capture-mac.m \
                          util/compatfd.c \
                          util/qemu-thread-posix.c
+endif
+
+ifeq ($(HOST_OS),freebsd)
+    CORE_MISC_SOURCES += util/compatfd.c \
+                         util/qemu-thread-posix.c \
+                         android/camera/camera-capture-dummy.c
 endif
 
 common_LOCAL_SRC_FILES += $(CORE_MISC_SOURCES)

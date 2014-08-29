@@ -177,6 +177,13 @@ clean_exit ()
 FORCE_32BIT=no
 force_32bit_binaries ()
 {
+	#64-bit build seems to work fine while 32-bit will not even link
+	case $OS in
+		freebsd-x86_64)
+		return
+		;;
+	esac
+
     if [ $CPU = x86_64 ] ; then
         FORCE_32BIT=yes
         case $OS in

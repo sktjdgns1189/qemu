@@ -32,6 +32,8 @@
 #elif _DARWIN_C_SOURCE
 /* Include declarations that are missing in non-Linux headers. */
 #include "android/camera/camera-win.h"
+#elif __FreeBSD__
+#include "android/camera/camera-win.h"
 #else
 #include <linux/videodev2.h>
 #endif  /* _WIN32 */

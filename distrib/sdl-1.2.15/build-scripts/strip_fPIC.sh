@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/local/bin/bash
 #
 # libtool assumes that the compiler can handle the -fPIC flag
 # This isn't always true (for example, nasm can't handle it)

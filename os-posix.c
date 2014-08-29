@@ -44,6 +44,10 @@
 #include <sys/syscall.h>
 #endif
 
+#ifdef __FreeBSD__
+#include <sys/sysctl.h>
+#endif
+
 #ifdef CONFIG_EVENTFD
 #include <sys/eventfd.h>
 #endif

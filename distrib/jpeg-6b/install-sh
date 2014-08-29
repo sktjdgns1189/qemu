@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/local/bin/bash
 #
 # install - install a program, script, or datafile
 # This comes from X11R5 (mit/util/scripts/install.sh).
@@ -95,7 +95,7 @@ while [ x"$1" != x ]; do
 	    then
 		src=$1
 	    else
-		# this colon is to work around a 386BSD /bin/sh bug
+		# this colon is to work around a 386BSD /usr/local/bin/bash bug
 		:
 		dst=$1
 	    fi

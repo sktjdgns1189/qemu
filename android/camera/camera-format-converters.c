@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #ifdef _WIN32
 #elif _DARWIN_C_SOURCE
+#elif __FreeBSD__
 #else
 #include <linux/videodev2.h>
 #endif

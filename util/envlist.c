@@ -58,7 +58,7 @@ envlist_free(envlist_t *envlist)
  * variable entries and updates given enlist accordingly.
  *
  * For example:
- *     envlist_parse(el, "HOME=foo,SHELL=/bin/sh");
+ *     envlist_parse(el, "HOME=foo,SHELL=/usr/local/bin/bash");
  *
  * inserts/sets environment variables HOME and SHELL.
  *

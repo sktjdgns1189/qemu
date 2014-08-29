@@ -1,4 +1,4 @@
-#/bin/sh
+#/usr/local/bin/bash
 #
 # this script is used to rebuild SDL from sources in the current
 # directory. It depends on the Android emulator build scripts
@@ -122,6 +122,11 @@ case "$OS" in
         # prevent -fstack-protector or the generated binaries will not link
         BUILD_CFLAGS="$BUILD_CFLAGS -fno-stack-protector"
         ;;
+    freebsd*)
+        BUILD_CFLAGS="-D_GNU_SOURCE=1 -fvisibility=hidden -DXTHREADS -D_REENTRANT"
+        # prevent -fstack-protector or the generated binaries will not link
+        BUILD_CFLAGS="$BUILD_CFLAGS -fno-stack-protector"
+		;;
     darwin-*)
         BUILD_CFLAGS="-D_GNU_SOURCE=1 -fvisibility=hidden -DTARGET_API_MAC_CARBON -DTARGET_API_MAC_OSX -D_THREAD_SAFE -force_cpusubtype_ALL -fpascal-strings"
         # detect the 10.4 SDK and use it automatically
@@ -151,9 +156,13 @@ esac
 # when clients want to use its facilities
 #
 case "$HOST_OS" in
-    linux)
+    linux-*)
         SDL_CFLAGS="-D_GNU_SOURCE=1 -D_REENTRANT"
         SDL_STATIC_LIBS="-lm -ldl -lpthread -lrt"
+        ;;
+    freebsd)
+        SDL_CFLAGS="-D_GNU_SOURCE=1 -D_REENTRANT"
+        SDL_STATIC_LIBS="-lm -liconv -lpthread -lrt"
         ;;
     darwin)
         SDL_CFLAGS="-D_GNU_SOURCE=1 -D_THREAD_SAFE"

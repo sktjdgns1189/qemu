@@ -26,6 +26,11 @@ LOCAL_AR := $(strip $(LOCAL_AR))
 ifndef LOCAL_AR
     LOCAL_AR := $(call local-host-tool,AR)
 endif
+
+ifeq ($(HOST_OS),freebsd)
+LOCAL_AR := ar
+endif
+
 ARFLAGS := crs
 
 $(LOCAL_BUILT_MODULE): PRIVATE_AR := $(LOCAL_AR)

@@ -21,6 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+#ifdef __FreeBSD__
+#define __BSD_VISIBLE 1
+#include "qemu-common.h"
+#endif
+
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>

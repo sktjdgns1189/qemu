@@ -44,6 +44,9 @@
 #elif defined(_WIN32) || defined(__APPLE__)
 #  define HAVE_KVM 0
 #  define HAVE_HAX 1
+#elif defined(__FreeBSD__)
+#  define HAVE_KVM 0
+#  define HAVE_HAX 0
 #else
 #  error "Unsupported host platform!"
 #endif

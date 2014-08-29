@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/local/bin/bash
 #
 # A small script used to rebuild the Android goldfish kernel image
 # See docs/KERNEL.TXT for usage instructions.

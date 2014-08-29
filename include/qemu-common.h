@@ -48,6 +48,16 @@
 #include <signal.h>
 #include <glib.h>
 
+#ifdef __FreeBSD__
+#include <netinet/in.h>
+#include <sys/socket.h>
+
+typedef unsigned u_int;
+typedef unsigned long u_long;
+typedef unsigned char u_char;
+typedef unsigned short u_short;
+#endif
+
 #ifdef _WIN32
 #include "sysemu/os-win32.h"
 #endif

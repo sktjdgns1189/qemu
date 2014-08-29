@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/local/bin/bash
 #
 # Build Universal binaries on Mac OS X, thanks Ryan!
 #

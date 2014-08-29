@@ -1058,7 +1058,7 @@ AC_DIVERT_POP
 m4_defun([_LT_PROG_ECHO_BACKSLASH],
 [_LT_SHELL_INIT([
 # Check that we are running under the correct shell.
-SHELL=${CONFIG_SHELL-/bin/sh}
+SHELL=${CONFIG_SHELL-/usr/local/bin/bash}
 
 case X$lt_ECHO in
 X*--fallback-echo)
@@ -1142,7 +1142,7 @@ if test -z "$lt_ECHO"; then
       elif { test -f /bin/ksh || test -f /bin/ksh$ac_exeext; } &&
 	   test "X$CONFIG_SHELL" != X/bin/ksh; then
         # If we have ksh, try running configure again with it.
-        ORIGINAL_CONFIG_SHELL=${CONFIG_SHELL-/bin/sh}
+        ORIGINAL_CONFIG_SHELL=${CONFIG_SHELL-/usr/local/bin/bash}
         export ORIGINAL_CONFIG_SHELL
         CONFIG_SHELL=/bin/ksh
         export CONFIG_SHELL
@@ -1184,7 +1184,7 @@ if test -z "$lt_ECHO"; then
 	  if test "$prev" != 'sed 50q "[$]0"'; then
 	    echo_test_string=`eval $prev`
 	    export echo_test_string
-	    exec ${ORIGINAL_CONFIG_SHELL-${CONFIG_SHELL-/bin/sh}} "[$]0" ${1+"[$]@"}
+	    exec ${ORIGINAL_CONFIG_SHELL-${CONFIG_SHELL-/usr/local/bin/bash}} "[$]0" ${1+"[$]@"}
 	  else
 	    # Oops.  We lost completely, so just stick with echo.
 	    ECHO=echo
@@ -1595,7 +1595,7 @@ AC_CACHE_VAL([lt_cv_sys_max_cmd_len], [dnl
       for i in 1 2 3 4 5 6 7 8 ; do
         teststring=$teststring$teststring
       done
-      SHELL=${SHELL-${CONFIG_SHELL-/bin/sh}}
+      SHELL=${SHELL-${CONFIG_SHELL-/usr/local/bin/bash}}
       # If test is not a shell built-in, we'll probably end up computing a
       # maximum length that is only half of the actual maximum length, but
       # we can't tell.

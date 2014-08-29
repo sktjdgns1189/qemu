@@ -29,7 +29,7 @@ int  android_gles_fast_pipes = 1;
 #include <windows.h>
 typedef HDC FBNativeDisplayType;
 typedef HWND FBNativeWindowType;
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__FreeBSD__)
 // Really a Window, which is defined as 32-bit unsigned long on all platforms
 // but we don't want to include the X11 headers here.
 typedef uint32_t FBNativeWindowType;

@@ -164,7 +164,7 @@ int qemu_close(int fd);
 int qemu_create_pidfile(const char *filename);
 int qemu_get_thread_id(void);
 
-#ifndef CONFIG_IOVEC
+#if !defined(CONFIG_IOVEC) && !defined(__FreeBSD__)
 struct iovec {
     void *iov_base;
     size_t iov_len;

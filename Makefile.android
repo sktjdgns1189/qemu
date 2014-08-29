@@ -334,6 +334,7 @@ include $(LOCAL_PATH)/Makefile.tests
 ###
 ###  Build directly from sources when using the standalone build.
 ###
+ifneq ($(HOST_OS),freebsd)
 ifeq (true,$(BUILD_STANDALONE_EMULATOR))
   ifeq (,$(strip $(wildcard $(EMULATOR_EMUGL_SOURCES_DIR))))
     $(error Cannot find GPU emulation sources directory: $(EMULATOR_EMUGL_SOURCES_DIR))
@@ -343,6 +344,7 @@ ifeq (true,$(BUILD_STANDALONE_EMULATOR))
   BUILD_EMULATOR_OPENGL := true
   BUILD_EMULATOR_HOST_OPENGL := true
   include $(EMULATOR_EMUGL_SOURCES_DIR)/Android.mk
+endif
 endif
 
 ## VOILA!!

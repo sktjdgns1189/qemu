@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/local/bin/bash
 #
 # this script is used to rebuild the Android emulator from sources
 # in the current directory. It also contains logic to speed up the

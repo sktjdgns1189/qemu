@@ -766,9 +766,11 @@ sock_address_list_create( const char*  hostname,
 #ifdef EAI_ADDRFAMILY
         case EAI_ADDRFAMILY:
 #endif
+#ifdef EAI_NODATA
         case EAI_NODATA:
             set_errno(ENOENT);
             break;
+#endif
         case EAI_FAMILY:
             set_errno(EAFNOSUPPORT);
             break;
