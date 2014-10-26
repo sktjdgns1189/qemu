@@ -64,7 +64,7 @@ void cpu_resume_from_signal(CPUArchState *env, void *puc)
 #if !defined(CONFIG_SOFTMMU)
 #ifdef __linux__
     struct ucontext *uc = puc;
-#elif defined(__OpenBSD__)
+#elif defined(__OpenBSD__) || defined(__FreeBSD__)
     struct sigcontext *uc = puc;
 #endif
 #endif
@@ -80,7 +80,7 @@ void cpu_resume_from_signal(CPUArchState *env, void *puc)
 #else
         sigprocmask(SIG_SETMASK, &uc->uc_sigmask, NULL);
 #endif
-#elif defined(__OpenBSD__)
+#elif defined(__OpenBSD__) || defined(__FreeBSD__)
         sigprocmask(SIG_SETMASK, &uc->sc_mask, NULL);
 #endif
     }
@@ -1014,7 +1014,7 @@ int cpu_signal_handler(int host_signum, void *pinfo,
     struct sigcontext *sc = puc;
     unsigned long pc = sc->sigc_regs.tpc;
     void *sigmask = (void *)sc->sigc_mask;
-#elif defined(__OpenBSD__)
+#elif defined(__OpenBSD__) || defined(__FreeBSD__)
     struct sigcontext *uc = puc;
     unsigned long pc = uc->sc_pc;
     void *sigmask = (void *)(long)uc->sc_mask;

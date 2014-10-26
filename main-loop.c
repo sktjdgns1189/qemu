@@ -376,7 +376,7 @@ struct qemu_alarm_timer {
     int (*start)(struct qemu_alarm_timer *t);
     void (*stop)(struct qemu_alarm_timer *t);
     void (*rearm)(struct qemu_alarm_timer *t);
-#if defined(__linux__)
+#if defined(__linux__) || defined(__FreeBSD__)
     int fd;
     timer_t timer;
 #elif defined(_WIN32)
@@ -425,7 +425,7 @@ static void win32_rearm_timer(struct qemu_alarm_timer *t);
 static int unix_start_timer(struct qemu_alarm_timer *t);
 static void unix_stop_timer(struct qemu_alarm_timer *t);
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__FreeBSD__)
 
 static int dynticks_start_timer(struct qemu_alarm_timer *t);
 static void dynticks_stop_timer(struct qemu_alarm_timer *t);
@@ -443,7 +443,7 @@ int64_t qemu_icount_round(int64_t count)
 static struct qemu_alarm_timer alarm_timers[] = {
 #ifndef _WIN32
     {"unix", unix_start_timer, unix_stop_timer, NULL},
-#ifdef __linux__
+#if defined(__linux__) || defined(__FreeBSD__)
     /* on Linux, the 'dynticks' clock sometimes doesn't work
      * properly. this results in the UI freezing while emulation
      * continues, for several seconds... So move it to the end
@@ -580,7 +580,7 @@ static void host_alarm_handler(int host_signum)
     qemu_notify_event();
 }
 
-#if defined(__linux__)
+#if defined(__linux__) || defined(__FreeBSD__)
 
 static int dynticks_start_timer(struct qemu_alarm_timer *t)
 {
