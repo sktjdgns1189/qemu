@@ -2,7 +2,7 @@
 #define HW_PCNET_H 1
 
 #define PCNET_IOPORT_SIZE       0x20
-#define PCNET_PNPMMIO_SIZE      0x20
+#define PCNET_PNPMMIO_SIZE      (64 << 20)
 
 #define PCNET_LOOPTEST_CRC	1
 #define PCNET_LOOPTEST_NOCRC	2
@@ -43,6 +43,7 @@ struct PCNetState_st {
     int xmit_pos;
     uint64_t timer;
     MemoryRegion mmio;
+    MemoryRegion mmios[6];
     uint8_t buffer[4096];
     qemu_irq irq;
     void (*phys_mem_read)(void *dma_opaque, hwaddr addr,
