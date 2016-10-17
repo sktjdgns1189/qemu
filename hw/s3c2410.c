@@ -1334,6 +1334,7 @@ static void s3c_uart_rx(void *opaque, const uint8_t *buf, int size)
 {
     struct s3c_uart_state_s *s = (struct s3c_uart_state_s *) opaque;
     int left;
+
     if (s->fcontrol & 1) {			/* FIFOEnable */
         if (s->rxlen + size > 16) {
             size = 16 - s->rxlen;
@@ -2715,14 +2716,14 @@ static struct {
     int dma[1];
 } s3c2410_uart[] = {
     {
-        0x50000000,
-        { S3C_PICS_RXD0, S3C_PICS_TXD0, S3C_PICS_ERR0 },
-        { S3C_RQ_UART0 },
-    },
-    {
         0x50004000,
         { S3C_PICS_RXD1, S3C_PICS_TXD1, S3C_PICS_ERR1 },
         { S3C_RQ_UART1 },
+    },
+    {
+        0x50000000,
+        { S3C_PICS_RXD0, S3C_PICS_TXD0, S3C_PICS_ERR0 },
+        { S3C_RQ_UART0 },
     },
     {
         0x50008000,
@@ -2735,6 +2736,7 @@ static struct {
 /* General CPU reset */
 static void s3c2410_reset(void *opaque)
 {
+	fprintf(stderr, "%s:%d\n", __func__, __LINE__);
     struct s3c_state_s *s = (struct s3c_state_s *) opaque;
     int i;
     s3c_mc_reset(s);
@@ -2786,8 +2788,21 @@ struct s3c_state_s *s3c24xx_init(
     register_savevm("s3c24xx", 0, 0,
                     cpu_save, cpu_load, s->env);
 
-    cpu_register_physical_memory(S3C_RAM_BASE, sdram_size,
-                    qemu_ram_alloc(sdram_size) | IO_MEM_RAM);
+	ram_addr_t s3c_sdram_phys = qemu_ram_alloc(sdram_size) | IO_MEM_RAM;
+
+    cpu_register_physical_memory(S3C_RAM_BASE, sdram_size, s3c_sdram_phys);
+
+	{//Devices specific to DeviceEmulator
+		/* "cached" mirror of SDRAM banks for WinCE */
+		cpu_register_physical_memory(0xa0000000, sdram_size, s3c_sdram_phys);
+
+		/* DMA Transport */
+		cpu_register_physical_memory(0x500f0000, 0x4000, qemu_ram_alloc(0x4000) | IO_MEM_RAM);
+		/* Folder Sharing */
+		cpu_register_physical_memory(0x500f4000, 0x1000, qemu_ram_alloc(0x1000) | IO_MEM_RAM);
+		/* Emulator Server */
+		cpu_register_physical_memory(0x500f5000, 0x1000, qemu_ram_alloc(0x1000) | IO_MEM_RAM);
+	}
 
     /* If OM pins are 00, SRAM is mapped at 0x0 instead.  */
     cpu_register_physical_memory(sram_address, S3C_SRAM_SIZE,

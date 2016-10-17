@@ -104,6 +104,13 @@ struct NANDFlashState {
 # define PAGE_SECTORS		4
 # define ADDR_SHIFT		16
 # include "nand.c"
+    
+/*
+ * These are the new chips with large page size. The pagesize and the
+ * erasesize is determined from the extended id bytes
+ */
+# define LP_OPTIONS	(NAND_SAMSUNG_LP | NAND_NO_READRDY | NAND_NO_AUTOINCR)
+# define LP_OPTIONS16	(LP_OPTIONS | NAND_BUSWIDTH_16)
 
 /* Information based on Linux drivers/mtd/nand/nand_ids.c */
 static const struct {
@@ -113,91 +120,64 @@ static const struct {
     int erase_shift;
     uint32_t options;
 } nand_flash_ids[0x100] = {
-    [0 ... 0xff] = { 0 },
-
-    [0x6e] = { 1,	8,	8, 4, 0 },
-    [0x64] = { 2,	8,	8, 4, 0 },
-    [0x6b] = { 4,	8,	9, 4, 0 },
-    [0xe8] = { 1,	8,	8, 4, 0 },
-    [0xec] = { 1,	8,	8, 4, 0 },
-    [0xea] = { 2,	8,	8, 4, 0 },
-    [0xd5] = { 4,	8,	9, 4, 0 },
-    [0xe3] = { 4,	8,	9, 4, 0 },
-    [0xe5] = { 4,	8,	9, 4, 0 },
-    [0xd6] = { 8,	8,	9, 4, 0 },
-
-    [0x39] = { 8,	8,	9, 4, 0 },
-    [0xe6] = { 8,	8,	9, 4, 0 },
-    [0x49] = { 8,	16,	9, 4, NAND_BUSWIDTH_16 },
-    [0x59] = { 8,	16,	9, 4, NAND_BUSWIDTH_16 },
+    //[0 ... 0xff] = { 0 },
 
     [0x33] = { 16,	8,	9, 5, 0 },
-    [0x73] = { 16,	8,	9, 5, 0 },
-    [0x43] = { 16,	16,	9, 5, NAND_BUSWIDTH_16 },
-    [0x53] = { 16,	16,	9, 5, NAND_BUSWIDTH_16 },
-
     [0x35] = { 32,	8,	9, 5, 0 },
-    [0x75] = { 32,	8,	9, 5, 0 },
-    [0x45] = { 32,	16,	9, 5, NAND_BUSWIDTH_16 },
-    [0x55] = { 32,	16,	9, 5, NAND_BUSWIDTH_16 },
-
     [0x36] = { 64,	8,	9, 5, 0 },
-    [0x76] = { 64,	8,	9, 5, 0 },
-    [0x46] = { 64,	16,	9, 5, NAND_BUSWIDTH_16 },
-    [0x56] = { 64,	16,	9, 5, NAND_BUSWIDTH_16 },
-
-    [0x78] = { 128,	8,	9, 5, 0 },
     [0x39] = { 128,	8,	9, 5, 0 },
-    [0x79] = { 128,	8,	9, 5, 0 },
-    [0x72] = { 128,	16,	9, 5, NAND_BUSWIDTH_16 },
+    [0x43] = { 16,	16,	9, 5, NAND_BUSWIDTH_16 },
+    [0x45] = { 32,	16,	9, 5, NAND_BUSWIDTH_16 },
+    [0x46] = { 64,	16,	9, 5, NAND_BUSWIDTH_16 },
     [0x49] = { 128,	16,	9, 5, NAND_BUSWIDTH_16 },
-    [0x74] = { 128,	16,	9, 5, NAND_BUSWIDTH_16 },
+    [0x53] = { 16,	16,	9, 5, NAND_BUSWIDTH_16 },
+    [0x55] = { 32,	16,	9, 5, NAND_BUSWIDTH_16 },
+    [0x56] = { 64,	16,	9, 5, NAND_BUSWIDTH_16 },
     [0x59] = { 128,	16,	9, 5, NAND_BUSWIDTH_16 },
-
+    [0x64] = { 2,	8,	8, 4, 0 },
+    [0x6b] = { 4,	8,	9, 4, 0 },
+    [0x6e] = { 1,	8,	8, 4, 0 },
     [0x71] = { 256,	8,	9, 5, 0 },
-
-    /*
-     * These are the new chips with large page size. The pagesize and the
-     * erasesize is determined from the extended id bytes
-     */
-# define LP_OPTIONS	(NAND_SAMSUNG_LP | NAND_NO_READRDY | NAND_NO_AUTOINCR)
-# define LP_OPTIONS16	(LP_OPTIONS | NAND_BUSWIDTH_16)
-
-    /* 512 Megabit */
-    [0xa2] = { 64,	8,	0, 0, LP_OPTIONS },
-    [0xf2] = { 64,	8,	0, 0, LP_OPTIONS },
-    [0xb2] = { 64,	16,	0, 0, LP_OPTIONS16 },
-    [0xc2] = { 64,	16,	0, 0, LP_OPTIONS16 },
-
-    /* 1 Gigabit */
+    [0x72] = { 128,	16,	9, 5, NAND_BUSWIDTH_16 },
+    [0x73] = { 16,	8,	9, 5, 0 },
+    [0x74] = { 128,	16,	9, 5, NAND_BUSWIDTH_16 },
+    [0x75] = { 32,	8,	9, 5, 0 },
+    [0x76] = { 64,	8,	9, 5, 0 },
+    [0x78] = { 128,	8,	9, 5, 0 },
+    [0x79] = { 128,	8,	9, 5, 0 },
     [0xa1] = { 128,	8,	0, 0, LP_OPTIONS },
-    [0xf1] = { 128,	8,	0, 0, LP_OPTIONS },
-    [0xb1] = { 128,	16,	0, 0, LP_OPTIONS16 },
-    [0xc1] = { 128,	16,	0, 0, LP_OPTIONS16 },
-
-    /* 2 Gigabit */
-    [0xaa] = { 256,	8,	0, 0, LP_OPTIONS },
-    [0xda] = { 256,	8,	0, 0, LP_OPTIONS },
-    [0xba] = { 256,	16,	0, 0, LP_OPTIONS16 },
-    [0xca] = { 256,	16,	0, 0, LP_OPTIONS16 },
-
-    /* 4 Gigabit */
-    [0xac] = { 512,	8,	0, 0, LP_OPTIONS },
-    [0xdc] = { 512,	8,	0, 0, LP_OPTIONS },
-    [0xbc] = { 512,	16,	0, 0, LP_OPTIONS16 },
-    [0xcc] = { 512,	16,	0, 0, LP_OPTIONS16 },
-
-    /* 8 Gigabit */
+    [0xa2] = { 64,	8,	0, 0, LP_OPTIONS },
     [0xa3] = { 1024,	8,	0, 0, LP_OPTIONS },
-    [0xd3] = { 1024,	8,	0, 0, LP_OPTIONS },
-    [0xb3] = { 1024,	16,	0, 0, LP_OPTIONS16 },
-    [0xc3] = { 1024,	16,	0, 0, LP_OPTIONS16 },
-
-    /* 16 Gigabit */
     [0xa5] = { 2048,	8,	0, 0, LP_OPTIONS },
-    [0xd5] = { 2048,	8,	0, 0, LP_OPTIONS },
+    [0xaa] = { 256,	8,	0, 0, LP_OPTIONS },
+    [0xac] = { 512,	8,	0, 0, LP_OPTIONS },
+    [0xb1] = { 128,	16,	0, 0, LP_OPTIONS16 },
+    [0xb2] = { 64,	16,	0, 0, LP_OPTIONS16 },
+    [0xb3] = { 1024,	16,	0, 0, LP_OPTIONS16 },
     [0xb5] = { 2048,	16,	0, 0, LP_OPTIONS16 },
+    [0xba] = { 256,	16,	0, 0, LP_OPTIONS16 },
+    [0xbc] = { 512,	16,	0, 0, LP_OPTIONS16 },
+    [0xc1] = { 128,	16,	0, 0, LP_OPTIONS16 },
+    [0xc2] = { 64,	16,	0, 0, LP_OPTIONS16 },
+    [0xc3] = { 1024,	16,	0, 0, LP_OPTIONS16 },
     [0xc5] = { 2048,	16,	0, 0, LP_OPTIONS16 },
+    [0xca] = { 256,	16,	0, 0, LP_OPTIONS16 },
+    [0xcc] = { 512,	16,	0, 0, LP_OPTIONS16 },
+    [0xd3] = { 1024,	8,	0, 0, LP_OPTIONS },
+    [0xd5] = { 2048,	8,	0, 0, LP_OPTIONS },
+    [0xd6] = { 8,	8,	9, 4, 0 },
+    [0xda] = { 256,	8,	0, 0, LP_OPTIONS },
+    [0xdc] = { 512,	8,	0, 0, LP_OPTIONS },
+    [0xe3] = { 4,	8,	9, 4, 0 },
+    [0xe5] = { 4,	8,	9, 4, 0 },
+    [0xe6] = { 8,	8,	9, 4, 0 },
+    [0xe8] = { 1,	8,	8, 4, 0 },
+    [0xea] = { 2,	8,	8, 4, 0 },
+    [0xec] = { 1,	8,	8, 4, 0 },
+    [0xf1] = { 128,	8,	0, 0, LP_OPTIONS },
+    [0xf2] = { 64,	8,	0, 0, LP_OPTIONS },
+
+    { 0 },
 };
 
 static void nand_reset(NANDFlashState *s)

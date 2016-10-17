@@ -997,7 +997,7 @@ static int get_phys_addr_v5(CPUState *env, uint32_t address, int access_type,
             break;
         case 2: /* 4k page.  */
             phys_addr = (desc & 0xfffff000) | (address & 0xfff);
-            ap = (desc >> (4 + ((address >> 13) & 6))) & 3;
+            ap = (desc >> (4 + ((address >> 9) & 6))) & 3;
             break;
         case 3: /* 1k page.  */
 	    if (type == 1) {

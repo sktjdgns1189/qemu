@@ -494,6 +494,8 @@ ifdef CONFIG_KVM
 OBJS+=kvm.o kvm-all.o
 endif
 
+#LIBS+=-lrt -lpthread
+LIBS+=-lpthread
 LIBS+=-lz
 ifdef CONFIG_ALSA
 LIBS += -lasound

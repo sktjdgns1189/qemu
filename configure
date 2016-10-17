@@ -1255,7 +1255,8 @@ rt=no
 if $cc $ARCH_CFLAGS -o $TMPE $TMPC > /dev/null 2> /dev/null ; then
   :
 elif $cc $ARCH_CFLAGS -o $TMPE $TMPC -lrt > /dev/null 2> /dev/null ; then
-  rt=yes
+  :
+  #rt=yes
 fi
 
 if test "$rt" = "yes" ; then
@@ -1708,6 +1709,9 @@ elif check_linker_flags -z,allextract -z,defaultextract ; then
     # Solaris ld
     echo "ARLIBS_BEGIN=-Wl,-z,allextract" >> $config_mak
     echo "ARLIBS_END=-Wl,-z,defaultextract" >> $config_mak
+elif check_linker_flags -all_load -all_load; then
+	echo "ARLIBS_BEGIN=-all_load" >> $config_mak
+	echo "ARLIBS_END=" >> $config_mak
 else
     echo "Error: your linker does not support --whole-archive or -z."
     echo "Please report to qemu-devel@nongnu.org"

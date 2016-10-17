@@ -69,6 +69,7 @@ extern struct s3c_state_s *g_s3c;
 
 static void s3c2440_nand_reset(void * opaque)
 {
+printf("%s\n", __func__);
 	struct s3c2440_nand_s *s = (struct s3c2440_nand_s *)opaque;
     s->nfconf = 0x1000 |
 		(0 << 3) |		/* NCON0: not an advanced flash */
@@ -89,6 +90,7 @@ static uint8_t dbu[16],cmd;
 
 static uint32_t s3c2440_nand_read(void *opaque, target_phys_addr_t addr)
 {
+printf("%s\n", __func__);
     struct s3c2440_nand_s *s = (struct s3c2440_nand_s *) opaque;
     int rb, shr = 0;
     if (!s->nand)

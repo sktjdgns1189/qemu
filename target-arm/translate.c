@@ -2634,12 +2634,19 @@ static int disas_cp15_insn(CPUState *env, DisasContext *s, uint32_t insn)
         tmp = load_reg(s, rd);
         gen_helper_set_cp15(cpu_env, tcg_const_i32(insn), tmp);
         dead_tmp(tmp);
+#if 0
         /* Normally we would always end the TB here, but Linux
          * arch/arm/mach-pxa/sleep.S expects two instructions following
          * an MMU enable to execute from cache.  Imitate this behaviour.  */
+
+		/* XXX: WM5 port:
+		 * However, this breaks Windows CE when it disables the MMU
+		 * because the PC continues to be incremented in VA instead of PA.
+		 */
         if (!arm_feature(env, ARM_FEATURE_XSCALE) ||
                 (insn & 0x0fff0fff) != 0x0e010f10)
             gen_lookup_tb(s);
+#endif
     }
     return 0;
 }
