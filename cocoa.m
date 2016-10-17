@@ -337,7 +337,7 @@ int cocoa_keycode_to_qemu(int keycode)
         } else {
             // selective drawing code (draws only dirty rectangles) (OS X >= 10.4)
             const NSRect *rectList;
-            int rectCount;
+            long rectCount;
             int i;
             CGImageRef clipImageRef;
             CGRect clipRect;
@@ -783,7 +783,7 @@ int cocoa_keycode_to_qemu(int keycode)
     if(returnCode == NSCancelButton) {
         exit(0);
     } else if(returnCode == NSOKButton) {
-        char *bin = "qemu";
+        const char *bin = "qemu";
         char *img = (char*)[ [ sheet filename ] cStringUsingEncoding:NSASCIIStringEncoding];
 
         char **argv = (char**)malloc( sizeof(char*)*3 );

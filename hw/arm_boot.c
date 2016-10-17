@@ -184,6 +184,28 @@ static void set_kernel_args_old(struct arm_boot_info *info,
     }
 }
 
+static void arm_load_wince_image(CPUState *env, struct arm_boot_info *info) {
+    int kernel_size;
+	target_ulong entry;
+
+	fprintf(stderr, "%s:%d\n", __func__, __LINE__);
+
+	entry = 0x30021000;
+	
+	kernel_size = load_image_targphys(info->kernel_filename, entry,
+		ram_size);
+	if (kernel_size < 0) {
+		fprintf(stderr, "qemu: could not load kernel '%s'\n",
+			info->kernel_filename);	
+		exit(1);
+	}
+	fprintf(stderr, "%s:%d\n", __func__, __LINE__);
+
+	env->regs[15] = entry & 0xfffffffe;
+	env->thumb = entry & 1;
+	fprintf(stderr, "qemu: entry@%x\n", entry);
+}
+
 void arm_load_kernel(CPUState *env, struct arm_boot_info *info)
 {
     int kernel_size;
@@ -205,6 +227,9 @@ void arm_load_kernel(CPUState *env, struct arm_boot_info *info)
         env->boot_info = info;
         qemu_register_reset(main_cpu_reset, env);
     }
+
+	arm_load_wince_image(env, info);
+	return;
 
     /* Assume that raw images are linux kernels, and ELF images are not.  */
     kernel_size = load_elf(info->kernel_filename, 0, &elf_entry, NULL, NULL);

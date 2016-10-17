@@ -1,0 +1,1 @@
+MINI2440_BOOT=nand ./arm-softmmu/qemu-system-arm -m 128 -M mini2440 -serial stdio -kernel ../wm5/50/eboot.nb0 -mtdblock ../wm5/50/WCE -pflash ../wm5/50/WCE -nographic -s -S

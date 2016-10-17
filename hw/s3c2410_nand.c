@@ -34,6 +34,7 @@ struct s3c2410_nand_s {
 
 static void s3c2410_nand_reset(void * opaque)
 {
+    printf("%s\n", __func__);
 	struct s3c2410_nand_s *s = (struct s3c2410_nand_s *)opaque;
     s->nfconf = 0;
     s->nfcmd = 0;
@@ -45,6 +46,7 @@ static uint32_t s3c2410_nand_read(void *opaque, target_phys_addr_t addr)
 {
     struct s3c2410_nand_s *s = (struct s3c2410_nand_s *) opaque;
     int rb, shr = 0;
+	printf("%s: addr=%x\n", __func__, (unsigned long)addr);
     if (!s->nand)
         return 0;
 
@@ -85,6 +87,7 @@ static void s3c2410_nand_write(void *opaque, target_phys_addr_t addr,
                 uint32_t value)
 {
     struct s3c2410_nand_s *s = (struct s3c2410_nand_s *) opaque;
+	printf("%s: addr=%x value=%x\n", __func__, addr, value);
     if (!s->nand)
         return;
 

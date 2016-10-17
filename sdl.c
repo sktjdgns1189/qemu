@@ -446,6 +446,9 @@ static void sdl_send_mouse_event(int dx, int dy, int dz, int x, int y, int state
 {
     int buttons;
     buttons = 0;
+	if (width == 1 && height == 1) {
+		return;
+	}
     if (state & SDL_BUTTON(SDL_BUTTON_LEFT))
         buttons |= MOUSE_EVENT_LBUTTON;
     if (state & SDL_BUTTON(SDL_BUTTON_RIGHT))
