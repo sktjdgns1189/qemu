@@ -1334,6 +1334,7 @@ static void s3c_uart_rx(void *opaque, const uint8_t *buf, int size)
 {
     struct s3c_uart_state_s *s = (struct s3c_uart_state_s *) opaque;
     int left;
+
     if (s->fcontrol & 1) {			/* FIFOEnable */
         if (s->rxlen + size > 16) {
             size = 16 - s->rxlen;

@@ -278,10 +278,9 @@ enum defines_bsp_50 {
     RAM_BANK1_SIZE = (192 << 20),
 
     RAM_OFFSET_SP = 0x10000,
-    RAM_OFFSET_BSP_ARGS = 0x20800,
-   
-	RAM_OFFSET_EBOOT = 0x21000, //XXX
-    RAM_OFFSET_WINCE = 0x30000,
+    RAM_OFFSET_BSP_ARGS = 0x20000,
+
+	RAM_OFFSET_EBOOT = 0x21000,
 
     INITIAL_SP = RAM_BANK0_START + RAM_OFFSET_SP,
     BSP_ARGS_PTR = RAM_BANK0_START + RAM_OFFSET_BSP_ARGS,
@@ -293,13 +292,13 @@ enum {
   OAL_ARGUMENTS_VERSION = 1,
 };
 
-#define PACKED __attribute__ ((packed))
+#define PACKED __attribute__((packed))
 
-typedef struct {
+typedef struct oal_args_hdr_t {
   uint32_t magic;
   uint16_t version_major;
   uint16_t version_minor;
-} oal_args_hdr_t PACKED;
+} PACKED oal_args_hdr_t;
 
 typedef struct _oal_dev_location_t {
   int32_t iface_type;
@@ -307,9 +306,9 @@ typedef struct _oal_dev_location_t {
   int32_t logical_location;
   int32_t ptr_location;
   int32_t irq_number;
-} oal_dev_location_t PACKED;
+} PACKED oal_dev_location_t;
 
-typedef struct {
+typedef struct oal_kitl_args_t {
   uint32_t flags;
   oal_dev_location_t location;
   union {
@@ -326,9 +325,9 @@ typedef struct {
       uint32_t ip_route;
     };
   };
-} oal_kitl_args_t PACKED;
+} PACKED oal_kitl_args_t;
 
-typedef struct {
+typedef struct wince_bsp_args_t {
   oal_args_hdr_t header;
   uint8_t serial[16];
   oal_kitl_args_t kitl;
@@ -343,7 +342,7 @@ typedef struct {
   uint32_t in_update_mode;
   uint32_t ram_disk_size;
   uint32_t ram_disk_addr;
-} wince_bsp_args_t PACKED;
+} PACKED wince_bsp_args_t;
 
 static void mini2440_wince_fixup(struct mini2440_board_s *s) {
     mini2440_printf("%s\n", __func__);
@@ -353,18 +352,66 @@ static void mini2440_wince_fixup(struct mini2440_board_s *s) {
             .version_major = 1,
 			.version_minor = 1,
         },
-        
-		/*
+
         .screen_magic = BSP_SCREEN_SIGNATURE,
-        .screen_width = 240,
+        .screen_width = 320,
         .screen_height = 320,
         .screen_bits_pp = 16,
-		*/
 
 		.emulator_flags = 1,
     };
 
 	memcpy(qemu_get_ram_ptr(RAM_OFFSET_BSP_ARGS), &args, sizeof(args));
+}
+
+static uint32_t GetCEKernelOffset(const char *filename)
+{
+	uint32_t offset = 0;
+	FILE *fin = NULL;
+	uint32_t hdr[3] = {};
+
+	fin = fopen(filename, "rb");
+	if (!fin)
+	{
+		fprintf(stderr, "%s: failed to open CE kernel file '%s'\n", __func__, filename);
+		goto fail;
+	}
+
+	if (fseek(fin, 0x40, SEEK_SET))
+	{
+		fprintf(stderr, "%s: failed to seek to CE offset structure\n", __func__);
+		goto fail;
+	}
+
+	if (fread(hdr, 3 * sizeof(uint32_t), 1, fin) != 1)
+	{
+		fprintf(stderr, "%s: failed to read CE kernel header\n", __func__);
+		goto fail;
+	}
+
+	if (hdr[0] != 0x43454345) {
+		fprintf(stderr, "%s: ECEC marker not found <%x>\n", __func__, hdr[0]);
+		goto fail;
+	}
+
+	offset = hdr[1] - hdr[2];
+	if ((offset < 0x80000000) || (offset >= 0x88000000))
+	{
+		fprintf(stderr, "%s: offset not in RAM range\n", __func__);
+		goto fail;
+	}
+	offset -= 0x80000000;
+	goto done;
+
+fail:
+	offset = RAM_OFFSET_EBOOT;
+	fprintf(stderr, "%s: failed to read kernel offset, using %x\n", __func__, offset);
+
+done:
+	if (fin) {
+		fclose(fin);
+	}
+	return offset;
 }
 
 static void mini2440_reset(void *opaque)
@@ -374,16 +421,17 @@ static void mini2440_reset(void *opaque)
 
     mini2440_wince_fixup(s);
 	s->cpu->env->regs[13] = RAM_BANK0_START | RAM_OFFSET_SP;
-	s->cpu->env->regs[15] = RAM_BANK0_START | RAM_OFFSET_EBOOT;
-	
-	s->cpu->env->regs[15] = 0x30000;
+	s->cpu->env->regs[15] = 0x00000;
+
 	fprintf(stderr, "%s:%d\n", __func__, __LINE__);
 
 	/*
 	 * if a kernel was explicitly specified, we load it too
 	 */
 	if (s->kernel) {
-	   	image_size = load_image(s->kernel, qemu_get_ram_ptr(RAM_OFFSET_EBOOT));
+		uint32_t CEKernelOffset = GetCEKernelOffset(s->kernel);
+
+	   	image_size = load_image(s->kernel, qemu_get_ram_ptr(CEKernelOffset));
         if (image_size <= 0) {
             mini2440_printf("failed to load kernel\n");
             goto fail;
@@ -392,16 +440,13 @@ static void mini2440_reset(void *opaque)
             /* round size to a NAND block size */
             image_size = (image_size + 512) & ~(512-1);
         }
-        mini2440_printf("loaded kernel %s (size %x)\n", s->kernel, image_size);
-        //s->cpu->env->regs[15] = RAM_BANK0_START | RAM_OFFSET_EBOOT;
+        mini2440_printf("loaded kernel %s (size %x) offset=%x\n", s->kernel, image_size, CEKernelOffset);
+        s->cpu->env->regs[15] = RAM_BANK0_START | CEKernelOffset;
 	}
-    else {
-        goto fail;
-    }
-	
+
     return;
 fail:
-    mini2440_printf("%s: FAIL\n");
+    mini2440_printf("FAIL\n");
     abort();
 }
 
@@ -483,7 +528,8 @@ static void mini2440_init(ram_addr_t ram_size, const char *boot_device,
     sram_base = S3C_SRAM_BASE_NORBOOT;
     int nor_size = bdrv_getlength(drives_table[nor_idx].bdrv);
     if (nor_size > FLASH_NOR_SIZE) {
-      printf("%s: file too big (2MBytes)\n", __func__);
+      printf("%s: file too big (max=%x)\n", __func__, FLASH_NOR_SIZE);
+	  nor_size = FLASH_NOR_SIZE;
     }
     printf("%s: Register parallel flash %d size 0x%x '%s'\n", __func__, nor_idx,
            nor_size, bdrv_get_device_name(drives_table[nor_idx].bdrv));
@@ -497,7 +543,7 @@ static void mini2440_init(ram_addr_t ram_size, const char *boot_device,
   /* Setup peripherals */
   mini2440_gpio_setup(mini);
 
-#if 0
+#if 1
 	mini->eeprom = ee24c08_init(s3c_i2c_bus(mini->cpu->i2c));
 
 	{
@@ -529,7 +575,7 @@ static void mini2440_init(ram_addr_t ram_size, const char *boot_device,
 							2, /* width */
 							0x0001, 0x225b, 0x0000, 0x0000,
 							0x5555, 0x2aaa);
-  
+
   /* Setup initial (reset) machine state */
   fprintf(stderr, "%s: qemu_register_reset mini2440_reset\n", __func__);
   qemu_register_reset(mini2440_reset, mini);

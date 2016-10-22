@@ -313,6 +313,7 @@ static inline target_ulong get_phys_addr_code(CPUState *env1, target_ulong addr)
 /* NOTE: this function can trigger an exception */
 /* NOTE2: the returned address is not exactly the physical address: it
    is the offset relative to phys_ram_base */
+
 static inline target_ulong get_phys_addr_code(CPUState *env1, target_ulong addr)
 {
     int mmu_idx, page_index, pd;
@@ -329,7 +330,31 @@ static inline target_ulong get_phys_addr_code(CPUState *env1, target_ulong addr)
 #if defined(TARGET_SPARC) || defined(TARGET_MIPS)
         do_unassigned_access(addr, 0, 1, 0, 4);
 #else
-        cpu_abort(env1, "Trying to execute code outside RAM or ROM at 0x" TARGET_FMT_lx "\n", addr);
+		if ((env1->cp15.c1_sys & 1) == 0) {
+			/* MMU disabled: translate PC for WinCE */
+			uint32_t pc = addr;
+			uint32_t newPC = pc;
+			/*
+			if ((pc >= 0x92000000) && (pc < 0x94000000))
+			{
+				newPC = pc - 0x92000000;
+			}
+			else if ((pc >= 0x88000000) && (pc < 0x8e000000))
+			{
+				newPC = pc - 0x88000000;
+			}
+			else if (pc >= 0x80000000)
+			{
+				newPC = pc - 0x50000000;
+			}
+			*/
+			printf("%s: MMU disabled. xlate pc virt->phys %x->%x\n", __func__, pc, newPC);
+			return newPC;
+		}
+		if ((addr < 0x92000000) || (addr >= 0x94000000)) {
+			//printf("%s: maybe outside of ROM %x\n", __func__, addr);
+		}
+        //cpu_abort(env1, "Trying to execute code outside RAM or ROM at 0x" TARGET_FMT_lx "\n", addr);
 #endif
     }
     p = (void *)(unsigned long)addr
