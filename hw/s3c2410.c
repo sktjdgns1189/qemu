@@ -1655,7 +1655,7 @@ static uint32_t s3c_adc_read(void *opaque, target_phys_addr_t addr)
 
     switch (addr) {
     case S3C_ADCCON:
-        return s->control;
+        return s->control | 0x8000;
     case S3C_ADCTSC:
         return s->ts;
     case S3C_ADCDLY:
@@ -1663,9 +1663,9 @@ static uint32_t s3c_adc_read(void *opaque, target_phys_addr_t addr)
     case S3C_ADCDAT0:
         if (s->control & 2)
             s3c_adc_start(s);
-        return ((!s->down) << 15) | s->xdata;
+        return ((!s->down) << 15) | s->xdata | 1;
     case S3C_ADCDAT1:
-        return ((!s->down) << 15) | s->ydata;
+        return ((!s->down) << 15) | s->ydata | 1;
     default:
         printf("%s: Bad register 0x%lx\n", __FUNCTION__, (unsigned long)addr);
         break;
@@ -1681,7 +1681,8 @@ static void s3c_adc_write(void *opaque, target_phys_addr_t addr,
     switch (addr) {
     case S3C_ADCCON:
         s->control = (s->control & 0x8000) | (value & 0x7ffe);
-        s->enable = !(value & 4);
+        //s->enable = !(value & 4);
+		//XXX: WM5 port: disabling the touchscreen timer seems to make it stuck
         if ((value & 1) && !(value & 2))
             s3c_adc_start(s);
         if (!s->enable)
@@ -2408,7 +2409,9 @@ static uint32_t s3c_i2s_read(void *opaque, target_phys_addr_t addr)
 
     switch (addr) {
     case S3C_IISCON:
-        return s->control;
+        return s->control | 0x80;
+		//XXX: WM5 port: fixes wavedev.dll hanging
+		//0x80 is FIFO TX Ready
     case S3C_IISMOD:
         return s->mode;
     case S3C_IISPSR:
