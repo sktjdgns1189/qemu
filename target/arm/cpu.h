@@ -163,6 +163,8 @@ typedef struct CPUARMState {
      */
     /* Regs for A64 mode.  */
     uint64_t xregs[32];
+	/* Taint Regs */
+    uint64_t tregs[32];
     uint64_t pc;
     /* PSTATE isn't an architectural register for ARMv8. However, it is
      * convenient for us to assemble the underlying state into a 32 bit format

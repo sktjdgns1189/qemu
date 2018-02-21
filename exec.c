@@ -490,6 +490,8 @@ static MemoryRegionSection flatview_do_translate(FlatView *fv,
     hwaddr page_mask = (hwaddr)(-1);
     hwaddr plen = (hwaddr)(-1);
 
+	//fprintf(stderr, "%s: addr=%llx is_write=%d\n", __func__, addr, is_write);
+
     if (plen_out) {
         plen = *plen_out;
     }

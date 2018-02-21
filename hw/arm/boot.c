@@ -568,7 +568,9 @@ static void do_cpu_reset(void *opaque)
     const struct arm_boot_info *info = env->boot_info;
 
     cpu_reset(cs);
+	env->cp15.scr_el3 |= 0x8f000000;
     if (info) {
+		printf("%s entry=%llx\n", __func__, info->entry);
         if (!info->is_linux) {
             int i;
             /* Jump to the entry point.  */
@@ -730,6 +732,7 @@ static uint64_t arm_load_elf(struct arm_boot_info *info, uint64_t *pentry,
     Error *err = NULL;
 
 
+	printf("%s: info->kernel_filename=%x\n", __func__, info->kernel_filename);
     load_elf_hdr(info->kernel_filename, &elf_header, &elf_is64, &err);
     if (err) {
         return ret;
@@ -961,6 +964,7 @@ static void arm_load_kernel_notify(Notifier *notifier, void *data)
         exit(1);
     }
     info->entry = entry;
+	printf("%s: entry=%llx\n", __func__, entry);
     if (is_linux) {
         uint32_t fixupcontext[FIXUP_MAX];
 
@@ -1056,9 +1060,15 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
 {
     CPUState *cs;
 
+#if 0
     info->load_kernel_notifier.cpu = cpu;
     info->load_kernel_notifier.notifier.notify = arm_load_kernel_notify;
     qemu_add_machine_init_done_notifier(&info->load_kernel_notifier.notifier);
+#else
+	for (cs = CPU(cpu); cs; cs = CPU_NEXT(cs)) {
+        ARM_CPU(cs)->env.boot_info = info;
+    }
+#endif
 
     /* CPU objects (unlike devices) are not automatically reset on system
      * reset, so we must always register a handler to do so. If we're

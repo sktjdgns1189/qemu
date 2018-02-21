@@ -51,6 +51,12 @@ bool arm_is_psci_call(ARMCPU *cpu, int excp_type)
         return false;
     }
 
+	printf("%s:param=%016x\n", __func__, param);
+	if ((param & 0xfffff000) == 0xfffff000) {
+		//Exynos SROM 
+		return true;
+	}
+
     switch (param) {
     case QEMU_PSCI_0_2_FN_PSCI_VERSION:
     case QEMU_PSCI_0_2_FN_MIGRATE_INFO_TYPE:
@@ -100,12 +106,16 @@ void arm_handle_psci_call(ARMCPU *cpu)
         param[i] = is_a64(env) ? env->xregs[i] : env->regs[i];
     }
 
+#if 0
     if ((param[0] & QEMU_PSCI_0_2_64BIT) && !is_a64(env)) {
         ret = QEMU_PSCI_RET_INVALID_PARAMS;
         goto err;
     }
+#endif
 
     switch (param[0]) {
+		printf("%s:param[0]=%x\n", __func__, param[0]);
+
         CPUState *target_cpu_state;
         ARMCPU *target_cpu;
 
@@ -196,7 +206,9 @@ void arm_handle_psci_call(ARMCPU *cpu)
         ret = QEMU_PSCI_RET_NOT_SUPPORTED;
         break;
     default:
-        g_assert_not_reached();
+		printf("%s: SMC %016x\n", __func__, param[0]);
+		break;
+        //g_assert_not_reached();
     }
 
 err:

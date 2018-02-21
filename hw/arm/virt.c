@@ -92,6 +92,7 @@
 #define PLATFORM_BUS_NUM_IRQS 64
 
 static ARMPlatformBusSystemParams platform_bus_params;
+static uint64_t g_bios_entry = 0;
 
 /* RAM limit in GB. Since VIRT_MEM starts at the 1GB mark, this means
  * RAM can go up to the 256GB mark, leaving 256GB of the physical
@@ -122,31 +123,56 @@ static ARMPlatformBusSystemParams platform_bus_params;
  * Note that devices should generally be placed at multiples of 0x10000,
  * to accommodate guests using 64K pages.
  */
+
+/*
+ * TODO:
+ * UART
+ * FUSES
+ * EMMC/UFS
+ */
+
+#define FAKE_PERIPH_ADDR 0x00000000
+#define FAKE_PERIPH_SIZE 0x20000000
+
+#define FAKE_IMEM_ADDR (FAKE_PERIPH_SIZE + FAKE_PERIPH_ADDR)
+#define FAKE_IMEM_SIZE 0x02000000
+
+#define FAKE_TZMEM_ADDR (FAKE_IMEM_ADDR + FAKE_IMEM_SIZE)
+#define FAKE_TZMEM_SIZE 0x02000000
+
+#define BL2_LOAD_ADDR 0x8f000000
+
 static const MemMapEntry a15memmap[] = {
-    /* Space up to 0x8000000 is reserved for a boot ROM */
-    [VIRT_FLASH] =              {          0, 0x08000000 },
-    [VIRT_CPUPERIPHS] =         { 0x08000000, 0x00020000 },
+	[VIRT_FAKE_PERIPH] = 			{ FAKE_PERIPH_ADDR, FAKE_PERIPH_SIZE },
+	[VIRT_FAKE_IMEM] =				{ FAKE_IMEM_ADDR, FAKE_IMEM_SIZE },
+	[VIRT_FAKE_TZMEM] = 			{ FAKE_TZMEM_ADDR, FAKE_TZMEM_SIZE },
+
+    /* Space up to 0x4000000 is reserved for a boot ROM */
+    [VIRT_FLASH] =              { 0x20000000, 0x04000000 },
+    [VIRT_CPUPERIPHS] =         { 0x28000000, 0x00020000 },
+
     /* GIC distributor and CPU interfaces sit inside the CPU peripheral space */
-    [VIRT_GIC_DIST] =           { 0x08000000, 0x00010000 },
-    [VIRT_GIC_CPU] =            { 0x08010000, 0x00010000 },
-    [VIRT_GIC_V2M] =            { 0x08020000, 0x00001000 },
+    [VIRT_GIC_DIST] =           { 0x28000000, 0x00010000 },
+    [VIRT_GIC_CPU] =            { 0x28010000, 0x00010000 },
+    [VIRT_GIC_V2M] =            { 0x28020000, 0x00001000 },
     /* The space in between here is reserved for GICv3 CPU/vCPU/HYP */
-    [VIRT_GIC_ITS] =            { 0x08080000, 0x00020000 },
+    [VIRT_GIC_ITS] =            { 0x28080000, 0x00020000 },
     /* This redistributor space allows up to 2*64kB*123 CPUs */
-    [VIRT_GIC_REDIST] =         { 0x080A0000, 0x00F60000 },
-    [VIRT_UART] =               { 0x09000000, 0x00001000 },
-    [VIRT_RTC] =                { 0x09010000, 0x00001000 },
-    [VIRT_FW_CFG] =             { 0x09020000, 0x00000018 },
-    [VIRT_GPIO] =               { 0x09030000, 0x00001000 },
-    [VIRT_SECURE_UART] =        { 0x09040000, 0x00001000 },
-    [VIRT_MMIO] =               { 0x0a000000, 0x00000200 },
+    [VIRT_GIC_REDIST] =         { 0x280A0000, 0x00F60000 },
+
+    [VIRT_UART] =               { 0x29000000, 0x00001000 },
+    [VIRT_RTC] =                { 0x29010000, 0x00001000 },
+    [VIRT_FW_CFG] =             { 0x29020000, 0x00000018 },
+    [VIRT_GPIO] =               { 0x29030000, 0x00001000 },
+    [VIRT_SECURE_UART] =        { 0x29040000, 0x00001000 },
+    [VIRT_MMIO] =               { 0x2a000000, 0x00000200 },
     /* ...repeating for a total of NUM_VIRTIO_TRANSPORTS, each of that size */
-    [VIRT_PLATFORM_BUS] =       { 0x0c000000, 0x02000000 },
-    [VIRT_SECURE_MEM] =         { 0x0e000000, 0x01000000 },
-    [VIRT_PCIE_MMIO] =          { 0x10000000, 0x2eff0000 },
-    [VIRT_PCIE_PIO] =           { 0x3eff0000, 0x00010000 },
-    [VIRT_PCIE_ECAM] =          { 0x3f000000, 0x01000000 },
-    [VIRT_MEM] =                { 0x40000000, RAMLIMIT_BYTES },
+    //[VIRT_PLATFORM_BUS] =       { 0x2c000000, 0x02000000 },
+    [VIRT_SECURE_MEM] =         { 0x2e000000, 0x01000000 },
+    //[VIRT_PCIE_MMIO] =          { 0x10000000, 0x2eff0000 },
+    //[VIRT_PCIE_PIO] =           { 0x3eff0000, 0x00010000 },
+    //[VIRT_PCIE_ECAM] =          { 0x3f000000, 0x01000000 },
+    [VIRT_MEM] =                { 0x80000000, RAMLIMIT_BYTES },
     /* Second PCIe window, 512GB wide at the 512GB boundary */
     [VIRT_PCIE_MMIO_HIGH] =   { 0x8000000000ULL, 0x8000000000ULL },
 };
@@ -719,6 +745,18 @@ static Notifier virt_system_powerdown_notifier = {
     .notify = virt_powerdown_req
 };
 
+static void create_fake_periph(const VirtMachineState *vms, qemu_irq *pic)
+{
+    char *nodename;
+    hwaddr base = vms->memmap[VIRT_FAKE_PERIPH].base;
+    hwaddr size = vms->memmap[VIRT_FAKE_PERIPH].size;
+    DeviceState *dev = sysbus_create_simple("fake_periph", base, 0);
+    
+	//XXX: won't work for TZ because of intersection with TZMEM.
+	//need to be more granular or pass the region size to periph
+	sysbus_create_simple("fake_periph", 0xfd000000, 0);
+}
+
 static void create_gpio(const VirtMachineState *vms, qemu_irq *pic)
 {
     char *nodename;
@@ -878,8 +916,33 @@ static void create_one_flash(const char *name, hwaddr flashbase,
             error_report("Could not find ROM image '%s'", file);
             exit(1);
         }
-        image_size = load_image_mr(fn, sysbus_mmio_get_region(sbd, 0));
+        //image_size = load_image_mr(fn, sysbus_mmio_get_region(sbd, 0));
+
+		uint64_t low_addr = 0;
+		uint64_t high_addr = 0;
+		uint64_t pentry = 0;
+		image_size = load_elf(file, NULL, NULL,
+				&pentry,
+				&low_addr,
+				&high_addr,
+				0, //big endian
+				0, //elf_machine
+				1, //wtf
+				0 //data_swab
+			);
+
+		low_addr &= 0xffffffffULL;
+		high_addr &= 0xffffffffULL;
+		pentry &= 0xffffffffULL;
+		g_bios_entry = pentry;
+		printf("%s: low_addr=0x%llx high_addr=0x%llx pentry=0x%llx image_size=0x%x\n",
+				__func__, low_addr, high_addr, pentry, image_size);
         g_free(fn);
+
+        if (image_size < 0) {
+            image_size = load_image_targphys(file, BL2_LOAD_ADDR, 0x01000000);
+        }
+
         if (image_size < 0) {
             error_report("Could not load ROM image '%s'", file);
             exit(1);
@@ -1183,6 +1246,7 @@ static void *machvirt_dtb(const struct arm_boot_info *binfo, int *fdt_size)
     const VirtMachineState *board = container_of(binfo, VirtMachineState,
                                                  bootinfo);
 
+	return 0;
     *fdt_size = board->fdt_size;
     return board->fdt;
 }
@@ -1248,6 +1312,11 @@ static uint64_t virt_cpu_mp_affinity(VirtMachineState *vms, int idx)
     return arm_cpu_mp_affinity(idx, clustersz);
 }
 
+#define WRITE_WORD(p, value) do { \
+    address_space_stl_notdirty(&address_space_memory, p, value, \
+                               MEMTXATTRS_UNSPECIFIED, NULL);  \
+} while (0)
+
 static void machvirt_init(MachineState *machine)
 {
     VirtMachineState *vms = VIRT_MACHINE(machine);
@@ -1293,7 +1362,8 @@ static void machvirt_init(MachineState *machine)
      * because if we're using KVM then we must use HVC).
      */
     if (vms->secure && firmware_loaded) {
-        vms->psci_conduit = QEMU_PSCI_CONDUIT_DISABLED;
+        //vms->psci_conduit = QEMU_PSCI_CONDUIT_DISABLED;
+        vms->psci_conduit = QEMU_PSCI_CONDUIT_SMC;
     } else if (vms->virt) {
         vms->psci_conduit = QEMU_PSCI_CONDUIT_SMC;
     } else {
@@ -1413,7 +1483,19 @@ static void machvirt_init(MachineState *machine)
                                          machine->ram_size);
     memory_region_add_subregion(sysmem, vms->memmap[VIRT_MEM].base, ram);
 
-    create_flash(vms, sysmem, secure_sysmem ? secure_sysmem : sysmem);
+	//FAKE-specific stuff
+	{
+		MemoryRegion *imem = g_new(MemoryRegion, 1);
+		memory_region_allocate_system_memory(imem, NULL, "mach-virt.imem",
+											 vms->memmap[VIRT_FAKE_IMEM].size);
+		memory_region_add_subregion(sysmem, vms->memmap[VIRT_FAKE_IMEM].base, imem);
+		
+		MemoryRegion *tz_mem = g_new(MemoryRegion, 1);
+		memory_region_allocate_system_memory(tz_mem, NULL, "mach-virt.tzmem",
+										vms->memmap[VIRT_FAKE_TZMEM].size);
+		memory_region_add_subregion(sysmem, vms->memmap[VIRT_FAKE_TZMEM].base, tz_mem);
+	}
+    
 
     create_gic(vms, pic);
 
@@ -1425,18 +1507,21 @@ static void machvirt_init(MachineState *machine)
         create_secure_ram(vms, secure_sysmem);
         create_uart(vms, pic, VIRT_SECURE_UART, secure_sysmem, serial_hds[1]);
     }
+    create_flash(vms, sysmem, secure_sysmem ? secure_sysmem : sysmem);
 
-    create_rtc(vms, pic);
+    //create_rtc(vms, pic);
 
-    create_pcie(vms, pic);
+    //create_pcie(vms, pic);
 
-    create_gpio(vms, pic);
+    //create_gpio(vms, pic);
+    
+	create_fake_periph(vms, pic);
 
     /* Create mmio transports, so the user can create virtio backends
      * (which will be automatically plugged in to the transports). If
      * no backend is created the transport will just sit harmlessly idle.
      */
-    create_virtio_devices(vms, pic);
+    //create_virtio_devices(vms, pic);
 
     vms->fw_cfg = create_fw_cfg(vms, &address_space_memory);
     rom_set_fw(vms->fw_cfg);
@@ -1450,10 +1535,24 @@ static void machvirt_init(MachineState *machine)
     vms->bootinfo.initrd_filename = machine->initrd_filename;
     vms->bootinfo.nb_cpus = smp_cpus;
     vms->bootinfo.board_id = -1;
-    vms->bootinfo.loader_start = vms->memmap[VIRT_MEM].base;
     vms->bootinfo.get_dtb = machvirt_dtb;
+	vms->bootinfo.loader_start = vms->memmap[VIRT_MEM].base;
     vms->bootinfo.firmware_loaded = firmware_loaded;
-    arm_load_kernel(ARM_CPU(first_cpu), &vms->bootinfo);
+	
+	vms->bootinfo.loader_start = BL2_LOAD_ADDR;
+	vms->bootinfo.board_setup_addr = vms->bootinfo.loader_start;
+	vms->bootinfo.entry = vms->bootinfo.loader_start;
+    if (1) {
+		//Exynos9820: set boot mode flag (Download choice)
+		WRITE_WORD(0x80000000, 0x66265999);
+		arm_load_kernel(ARM_CPU(first_cpu), &vms->bootinfo);
+		//ARM_CPU(first_cpu)->env.pc |= BL2_LOAD_ADDR;
+
+		//Exynos BL2 sets VBAR_EL3 to SCR_EL3
+		//per ARM ARM higher bits of SCR are UNDEFINED so
+		//perhaps Exynos SROM is reusing them creatively for this purpose
+		//ARM_CPU(first_cpu)->env.cp15.scr_el3 |= vms->bootinfo.loader_start;
+	}
 
     /*
      * arm_load_kernel machine init done notifier registration must
@@ -1461,7 +1560,7 @@ static void machvirt_init(MachineState *machine)
      * another notifier is registered which adds platform bus nodes.
      * Notifiers are executed in registration reverse order.
      */
-    create_platform_bus(vms, pic);
+    //create_platform_bus(vms, pic);
 }
 
 static bool virt_get_secure(Object *obj, Error **errp)
@@ -1599,7 +1698,7 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
     mc->minimum_page_bits = 12;
     mc->possible_cpu_arch_ids = virt_possible_cpu_arch_ids;
     mc->cpu_index_to_instance_props = virt_cpu_index_to_props;
-    mc->default_cpu_type = ARM_CPU_TYPE_NAME("cortex-a15");
+    mc->default_cpu_type = ARM_CPU_TYPE_NAME("cortex-a53");
     mc->get_default_cpu_node_id = virt_get_default_cpu_node_id;
 }
 
@@ -1627,7 +1726,7 @@ static void virt_2_11_instance_init(Object *obj)
      * between KVM and TCG for this board, and it also allows us to
      * boot UEFI blobs which assume no TrustZone support.
      */
-    vms->secure = false;
+    vms->secure = true;
     object_property_add_bool(obj, "secure", virt_get_secure,
                              virt_set_secure, NULL);
     object_property_set_description(obj, "secure",
@@ -1774,3 +1873,184 @@ static void virt_machine_2_6_options(MachineClass *mc)
     vmc->no_pmu = true;
 }
 DEFINE_VIRT_MACHINE(2, 6)
+
+/******************************************************************************
+ * The YOLO device
+ *****************************************************************************/
+#define TYPE_FAKE_PERIPH "fake_periph"
+#define FAKE_PERIPH(obj) OBJECT_CHECK(FAKE_PERIPHState, (obj), TYPE_FAKE_PERIPH)
+
+typedef struct FAKE_PERIPHState {
+    SysBusDevice parent_obj;
+    MemoryRegion iomem;
+	uint64_t *cache;
+} FAKE_PERIPHState;
+
+#if 0
+https://github.com/exynos-linux-stable/dreamlte/blob/tw80-android-o/arch/arm64/boot/dts/exynos/exynos8895.dtsi
+
+10040100
+10040104 -> timer
+timer scaled like return ((ulonglong)(lParm1 * 0x3d09) >> 1 & 0x1ffffffffffffff) / 0x31975;
+
+TODO:
+ufs@0x13d60000
+#endif
+
+static uint64_t fake_periph_read(void *opaque, hwaddr offset,
+                           unsigned size)
+{
+    FAKE_PERIPHState *s = (FAKE_PERIPHState *)opaque;
+    int i;
+	uint64_t ret, *cache;
+
+	//use the original offset to hit the cache of the current qperiph instance
+	cache = &s->cache[offset / sizeof(uint64_t)];
+	ret = *cache;
+	
+	//for the switch below, use absolute physical addresses for simplicity
+	offset += s->iomem.addr;
+
+    switch (offset) {
+		case 0:
+			ret = 0; //some placeholder
+			break;
+
+		case 0x108300a4:
+			ret = *cache;
+			break;
+
+		/***** UFS *****/
+		case 0x13d60000:
+			ret = 0;
+			break;
+		case 0x13d60034:
+		case 0x13d60058:
+		case 0x13d60078:
+			ret = 1;
+			break;
+		case 0x13d60020:
+			ret = ~0ull ^ (1 << 2);
+			break;
+
+		/***** PMU and TIMER ******/
+		case 0x1e8480:
+			ret = 1000;
+			break;
+		case 0x10510040:
+			ret = 0;
+			break;
+		case 0x1051003c:
+			if (rand() % 100 < 30) {
+				*cache += 100000000;
+			}
+			ret = *cache;
+			break;
+
+		/***** TIMER *****/
+		case 0x10040100:
+			ret = *cache++;
+			break;
+		case 0x10040104:
+			ret = (*(cache - 1)) >> 32;
+			break;
+
+		/***** DBGC ******/
+		case 0x15862e88:
+			ret = 0x10;
+			break;
+		case 0x158d0080:
+			//ret = -0x24632153;
+			ret = -0x2463a5e3;
+			break;
+		case 0x15862ea4:
+			ret = ~0;
+			break;
+
+		/***** UART ******/
+		case 0x10440010:
+			//UART RX status
+			*cache = ~*cache;
+			ret = *cache;
+			break;
+		default:
+			*cache = 0;
+			ret = *cache;
+    }
+
+	fprintf(stderr, "fake_periph_readl: offset 0x%08x ret=0x%08x size=%02d\n", (int)offset, ret, size);
+	return ret;
+}
+
+static void fake_periph_write(void *opaque, hwaddr offset,
+                        uint64_t val, unsigned size)
+{
+    FAKE_PERIPHState *s = (FAKE_PERIPHState *)opaque;
+
+    switch (offset) {
+	case 0x10440020:
+		printf("%c", (char)val);
+		break;
+    default:
+        fprintf(stderr, "fake_periph_write: offset 0x%08x val=0x%08x size=%02d\n", (int)offset, val, size);
+        s->cache[offset / sizeof(uint64_t)] = val;
+        return;
+    }
+}
+
+static const MemoryRegionOps fake_periph_ops = {
+    .read = fake_periph_read,
+    .write = fake_periph_write,
+    .endianness = DEVICE_NATIVE_ENDIAN,
+};
+
+static void fake_periph_reset(DeviceState *d)
+{
+
+}
+
+static void fake_periph_init(Object *obj)
+{
+    DeviceState *dev = DEVICE(obj);
+    FAKE_PERIPHState *s = FAKE_PERIPH(obj);
+    SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
+
+	s->cache = (uint64_t*)malloc(FAKE_PERIPH_SIZE);
+	memset(s->cache, 0xff, FAKE_PERIPH_SIZE);
+	assert(s->cache);
+
+    memory_region_init_io(&s->iomem, obj, &fake_periph_ops, s, "fake_periph", FAKE_PERIPH_SIZE);
+    sysbus_init_mmio(sbd, &s->iomem);
+}
+
+static const VMStateDescription vmstate_fake_periph = {
+    .name = "fake_periph",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .fields = (VMStateField[]) {
+        VMSTATE_END_OF_LIST()
+    }
+};
+
+static void fake_periph_class_init(ObjectClass *klass, void *data)
+{
+    DeviceClass *dc = DEVICE_CLASS(klass);
+
+    dc->reset = fake_periph_reset;
+    dc->vmsd = &vmstate_fake_periph;
+}
+
+static const TypeInfo fake_periph_info = {
+    .name          = TYPE_FAKE_PERIPH,
+    .parent        = TYPE_SYS_BUS_DEVICE,
+    .instance_size = sizeof(FAKE_PERIPHState),
+    .instance_init = fake_periph_init,
+    .class_init    = fake_periph_class_init,
+};
+
+static void fake_periph_register_types(void)
+{
+    type_register_static(&fake_periph_info);
+}
+
+type_init(fake_periph_register_types)

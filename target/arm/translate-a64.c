@@ -39,6 +39,37 @@
 static TCGv_i64 cpu_X[32];
 static TCGv_i64 cpu_pc;
 
+//When conditional: print latest dependencies
+//When updating flags via cmp: save operands, look up last load address for regs
+//When LDR: save src addr for reg idx
+//When assigning reg: reset src reg
+struct RegisterSource {
+	int dirty;
+	TCGv_i64 tcg;
+} lastRegSrc[32];
+
+static void storeRegSrc(unsigned reg, TCGv_i64 addr)
+{
+	tcg_gen_movi_i64(lastRegSrc[reg].tcg, addr);
+	lastRegSrc[reg].dirty = 1;
+	//printf("X[%d] <-\n", reg);
+}
+
+static void dumpRegs(CPUState *cs)
+{
+    ARMCPU *cpu = ARM_CPU(cs);
+    CPUARMState *env = &cpu->env;
+	int i;
+	for (i = 0; i < 32; i++) 
+	{
+		if (lastRegSrc[i].dirty) {
+			uint64_t rsrc = env->tregs[i];
+			printf("R[%d] <=> %lx\n", i, rsrc);
+			lastRegSrc[i].dirty = 0;
+		}
+	}
+}
+
 /* Load/store exclusive handling */
 static TCGv_i64 cpu_exclusive_high;
 static TCGv_i64 cpu_reg(DisasContext *s, int reg);
@@ -48,6 +79,13 @@ static const char *regnames[] = {
     "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15",
     "x16", "x17", "x18", "x19", "x20", "x21", "x22", "x23",
     "x24", "x25", "x26", "x27", "x28", "x29", "lr", "sp"
+};
+
+static const char *tregnames[] = {
+    "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
+    "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15",
+    "t16", "t17", "t18", "t19", "t20", "t21", "t22", "t23",
+    "t24", "t25", "t26", "t27", "t28", "t29", "tlr", "tsp"
 };
 
 enum a64_shift_type {
@@ -95,6 +133,10 @@ void a64_translate_init(void)
         cpu_X[i] = tcg_global_mem_new_i64(cpu_env,
                                           offsetof(CPUARMState, xregs[i]),
                                           regnames[i]);
+        
+		lastRegSrc[i].tcg = tcg_global_mem_new_i64(cpu_env,
+                                          offsetof(CPUARMState, tregs[i]),
+                                          tregnames[i]);
     }
 
     cpu_exclusive_high = tcg_global_mem_new_i64(cpu_env,
@@ -1890,12 +1932,15 @@ static void gen_load_exclusive(DisasContext *s, int rt, int rt2,
             tcg_gen_qemu_ld_i64(cpu_exclusive_high, addr2, idx, memop);
             tcg_temp_free_i64(addr2);
 
+			storeRegSrc(rt, addr);
             tcg_gen_mov_i64(cpu_reg(s, rt), cpu_exclusive_val);
+			storeRegSrc(rt2, addr2);
             tcg_gen_mov_i64(cpu_reg(s, rt2), cpu_exclusive_high);
         }
     } else {
         memop |= size | MO_ALIGN;
         tcg_gen_qemu_ld_i64(cpu_exclusive_val, addr, idx, memop);
+		storeRegSrc(rt, addr);
         tcg_gen_mov_i64(cpu_reg(s, rt), cpu_exclusive_val);
     }
     tcg_gen_mov_i64(cpu_exclusive_addr, addr);
@@ -2029,6 +2074,7 @@ static void disas_ldst_excl(DisasContext *s, uint32_t insn)
     /* Note that since TCG is single threaded load-acquire/store-release
      * semantics require no extra if (is_lasr) { ... } handling.
      */
+	storeRegSrc(rt, tcg_addr);
 
     if (is_excl) {
         if (!is_store) {
@@ -2108,6 +2154,7 @@ static void disas_ld_lit(DisasContext *s, uint32_t insn)
     tcg_rt = cpu_reg(s, rt);
 
     tcg_addr = tcg_const_i64((s->pc - 4) + imm);
+	storeRegSrc(rt, tcg_addr);
     if (is_vector) {
         do_fp_ld(s, rt, tcg_addr, size);
     } else {
@@ -2224,6 +2271,7 @@ static void disas_ldst_pair(DisasContext *s, uint32_t insn)
     if (!postindex) {
         tcg_gen_addi_i64(tcg_addr, tcg_addr, offset);
     }
+	storeRegSrc(rt, tcg_addr);
 
     if (is_vector) {
         if (is_load) {
@@ -2270,6 +2318,7 @@ static void disas_ldst_pair(DisasContext *s, uint32_t insn)
         } else {
             tcg_gen_subi_i64(tcg_addr, tcg_addr, 1 << size);
         }
+		storeRegSrc(rn, tcg_addr);
         tcg_gen_mov_i64(cpu_reg_sp(s, rn), tcg_addr);
     }
 }
@@ -2359,6 +2408,7 @@ static void disas_ldst_reg_imm9(DisasContext *s, uint32_t insn,
         gen_check_sp_alignment(s);
     }
     tcg_addr = read_cpu_reg_sp(s, rn, 1);
+	storeRegSrc(rt, tcg_addr);
 
     if (!post_index) {
         tcg_gen_addi_i64(tcg_addr, tcg_addr, imm9);
@@ -2465,6 +2515,7 @@ static void disas_ldst_reg_roffset(DisasContext *s, uint32_t insn,
         gen_check_sp_alignment(s);
     }
     tcg_addr = read_cpu_reg_sp(s, rn, 1);
+	storeRegSrc(rt, tcg_addr);
 
     tcg_rm = read_cpu_reg(s, rm, 1);
     ext_and_shift_reg(tcg_rm, tcg_rm, opt, shift ? size : 0);
@@ -2554,6 +2605,7 @@ static void disas_ldst_reg_unsigned_imm(DisasContext *s, uint32_t insn,
     tcg_addr = read_cpu_reg_sp(s, rn, 1);
     offset = imm12 << size;
     tcg_gen_addi_i64(tcg_addr, tcg_addr, offset);
+	storeRegSrc(rt, tcg_addr);
 
     if (is_vector) {
         if (is_store) {
@@ -11325,6 +11377,7 @@ static void aarch64_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
 {
     DisasContext *dc = container_of(dcbase, DisasContext, base);
     CPUARMState *env = cpu->env_ptr;
+	//dumpRegs(cpu);
 
     if (dc->ss_active && !dc->pstate_ss) {
         /* Singlestep state is Active-pending.

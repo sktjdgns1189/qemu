@@ -1,0 +1,6 @@
+target remote tcp::1234
+set $pc = 0x8f000000
+
+b *0x8f002c44
+c
+set *(int*)0x8f16403c = 0

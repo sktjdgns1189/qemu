@@ -124,6 +124,12 @@ static void deliver_fault(ARMCPU *cpu, vaddr addr, MMUAccessType access_type,
     uint32_t syn, exc, fsr, fsc;
     ARMMMUIdx arm_mmu_idx = core_to_arm_mmu_idx(env, mmu_idx);
 
+	if (addr > 0x1000) {
+		printf("%s: addr=%llx access_type=%x pc32=%08x pc64=%016x\n",
+				__func__, addr, access_type,
+				env->regs[15], env->pc);
+	}
+
     target_el = exception_target_el(env);
     if (fi->stage2) {
         target_el = 2;
