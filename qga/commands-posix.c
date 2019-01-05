@@ -32,8 +32,16 @@
 
 #ifndef CONFIG_HAS_ENVIRON
 #ifdef __APPLE__
+#include <TargetConditionals.h>
+#if !TARGET_OS_IPHONE
 #include <crt_externs.h>
 #define environ (*_NSGetEnviron())
+#else
+char *environ[] = {
+	"FOO",
+};
+#endif
+
 #else
 extern char **environ;
 #endif

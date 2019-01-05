@@ -44,12 +44,13 @@ int main(int argc, char **argv)
 #endif
 #endif /* CONFIG_SDL */
 
-#ifdef CONFIG_COCOA
+#if defined(CONFIG_COCOA) || defined(CONFIG_IPNONE)
 #undef main
 #define main qemu_main
-#endif /* CONFIG_COCOA */
+#endif /* CONFIG_COCOA || CONFIG_IPHONE */
 
 
+#define main qemu_main
 #include "qemu/error-report.h"
 #include "qemu/sockets.h"
 #include "hw/hw.h"

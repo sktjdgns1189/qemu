@@ -1226,6 +1226,8 @@ DEF("display", HAS_ARG, QEMU_OPTION_display,
             "\t\"-display sdl\"\n"
 #elif defined(CONFIG_COCOA)
             "\t\"-display cocoa\"\n"
+#elif defined(CONFIG_IPHONE)
+            "\t\"-display iphone\"\n"
 #elif defined(CONFIG_VNC)
             "\t\"-vnc localhost:0,to=99,id=default\"\n"
 #else

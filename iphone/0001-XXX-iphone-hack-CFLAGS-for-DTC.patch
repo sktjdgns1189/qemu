@@ -1,0 +1,45 @@
+From 6d8733666b6e5878938170da2603eddaabe20527 Mon Sep 17 00:00:00 2001
+From: Alexander Tarasikov <alexander.tarasikov@gmail.com>
+Date: Sun, 17 Feb 2019 19:57:41 +0100
+Subject: [PATCH] XXX: iphone: hack CFLAGS for DTC
+
+    This makes libfdt/dtc compile. I'd love to get this working
+    in a cleaner way but for some reason when generating
+    dependency files it seems to ignore the CPPFLAGS variable.
+    Maybe it's not invoked with QEMU_CFLAGS. Need to figure it out.
+---
+ Makefile | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index d8ebc4f..a41ef4d 100644
+--- a/Makefile
++++ b/Makefile
+@@ -15,10 +15,13 @@ EXTRAVERSION =
+ LOCAL_VERSION =
+ CONFIG_LOCALVERSION =
+ 
+-CPPFLAGS = -I libfdt -I .
++CPPFLAGS = $(QEMU_CFLAGS) -I libfdt -I . -I/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS12.1.sdk/usr/include
+ WARNINGS = -Wall -Wpointer-arith -Wcast-qual -Wnested-externs \
+ 	-Wstrict-prototypes -Wmissing-prototypes -Wredundant-decls -Wshadow
+-CFLAGS = -g -Os $(SHAREDLIB_CFLAGS) -Werror $(WARNINGS)
++CFLAGS = $(QEMU_CFLAGS) -g -Os $(SHAREDLIB_CFLAGS) -Werror $(WARNINGS) -I/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS12.1.sdk/usr/include
++
++$(info CFLAGS=$(CFLAGS))
++$(info CPPFLAGS=$(CPPFLAGS))
+ 
+ BISON = bison
+ LEX = flex
+@@ -334,7 +337,7 @@ clean: libfdt_clean pylibfdt_clean tests_clean
+ 
+ %.d: %.c
+ 	@$(VECHO) DEP $<
+-	$(CC) $(CPPFLAGS) -MM -MG -MT "$*.o $@" $< > $@
++	$(CC) $(CPPFLAGS) -arch arm64 -I/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS12.1.sdk/usr/include -MM -MG -MT "$*.o $@" $< > $@
+ 
+ %.d: %.S
+ 	@$(VECHO) DEP $<
+-- 
+2.19.2
+

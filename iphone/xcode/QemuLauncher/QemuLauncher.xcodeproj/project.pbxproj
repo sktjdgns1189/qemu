@@ -1,0 +1,375 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 50;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1100F74E21E1FF97004A750B /* kernel-qemu in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1100F74D21E1FF88004A750B /* kernel-qemu */; };
+		1100F75021E20276004A750B /* linux in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1100F74F21E2020B004A750B /* linux */; };
+		114D27C72219EA4100B9D2A1 /* versatile-pb.dtb in CopyFiles */ = {isa = PBXBuildFile; fileRef = 114D27C62219EA4000B9D2A1 /* versatile-pb.dtb */; };
+		116B9DA621E1C0A1007A28FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 116B9DA521E1C0A1007A28FF /* Assets.xcassets */; };
+		116B9DAC21E1C0A1007A28FF /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 116B9DAB21E1C0A1007A28FF /* main.m */; };
+		116B9DC421E1DC6E007A28FF /* libqemu-aarch64-softmmu.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 116B9DC321E1DC6E007A28FF /* libqemu-aarch64-softmmu.dylib */; };
+		116B9DC521E1DC84007A28FF /* libqemu-aarch64-softmmu.dylib in Copy Files (1 item) */ = {isa = PBXBuildFile; fileRef = 116B9DC321E1DC6E007A28FF /* libqemu-aarch64-softmmu.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		116B9DCB21E1E39C007A28FF /* efi-virtio.rom in CopyFiles */ = {isa = PBXBuildFile; fileRef = 116B9DCA21E1E399007A28FF /* efi-virtio.rom */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		116B9DB621E1CD2A007A28FF /* Copy Files (1 item) */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 12;
+			dstPath = "";
+			dstSubfolderSpec = 6;
+			files = (
+				116B9DC521E1DC84007A28FF /* libqemu-aarch64-softmmu.dylib in Copy Files (1 item) */,
+			);
+			name = "Copy Files (1 item)";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		116B9DC821E1E359007A28FF /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				114D27C72219EA4100B9D2A1 /* versatile-pb.dtb in CopyFiles */,
+				1100F75021E20276004A750B /* linux in CopyFiles */,
+				1100F74E21E1FF97004A750B /* kernel-qemu in CopyFiles */,
+				116B9DCB21E1E39C007A28FF /* efi-virtio.rom in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		1100F74D21E1FF88004A750B /* kernel-qemu */ = {isa = PBXFileReference; lastKnownFileType = file; name = "kernel-qemu"; path = "../../../test_kernel/kernel-qemu"; sourceTree = "<group>"; };
+		1100F74F21E2020B004A750B /* linux */ = {isa = PBXFileReference; lastKnownFileType = file; name = linux; path = ../../../test_kernel/linux; sourceTree = "<group>"; };
+		114D27C62219EA4000B9D2A1 /* versatile-pb.dtb */ = {isa = PBXFileReference; lastKnownFileType = file; name = "versatile-pb.dtb"; path = "../../test_kernel/versatile-pb.dtb"; sourceTree = "<group>"; };
+		116B9D9921E1C0A0007A28FF /* QemuLauncher.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QemuLauncher.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		116B9DA521E1C0A1007A28FF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		116B9DAA21E1C0A1007A28FF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		116B9DAB21E1C0A1007A28FF /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		116B9DB321E1C9F7007A28FF /* libqemu-aarch64-softmmu.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libqemu-aarch64-softmmu.a"; path = "../../../aarch64-softmmu/libqemu-aarch64-softmmu.a"; sourceTree = "<group>"; };
+		116B9DBA21E1D04C007A28FF /* libqemu-aarch64-softmmu.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libqemu-aarch64-softmmu.dylib"; path = "../../../aarch64-softmmu/libqemu-aarch64-softmmu.dylib"; sourceTree = "<group>"; };
+		116B9DC321E1DC6E007A28FF /* libqemu-aarch64-softmmu.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libqemu-aarch64-softmmu.dylib"; path = "../../../../aarch64-softmmu/libqemu-aarch64-softmmu.dylib"; sourceTree = "<group>"; };
+		116B9DCA21E1E399007A28FF /* efi-virtio.rom */ = {isa = PBXFileReference; lastKnownFileType = file; name = "efi-virtio.rom"; path = "../../../../pc-bios/efi-virtio.rom"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		116B9D9621E1C0A0007A28FF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				116B9DC421E1DC6E007A28FF /* libqemu-aarch64-softmmu.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		116B9D9021E1C0A0007A28FF = {
+			isa = PBXGroup;
+			children = (
+				114D27C62219EA4000B9D2A1 /* versatile-pb.dtb */,
+				116B9D9B21E1C0A0007A28FF /* QemuLauncher */,
+				116B9D9A21E1C0A0007A28FF /* Products */,
+				116B9DB221E1C9F6007A28FF /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		116B9D9A21E1C0A0007A28FF /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				116B9D9921E1C0A0007A28FF /* QemuLauncher.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		116B9D9B21E1C0A0007A28FF /* QemuLauncher */ = {
+			isa = PBXGroup;
+			children = (
+				1100F74D21E1FF88004A750B /* kernel-qemu */,
+				1100F74F21E2020B004A750B /* linux */,
+				116B9DC321E1DC6E007A28FF /* libqemu-aarch64-softmmu.dylib */,
+				116B9DCA21E1E399007A28FF /* efi-virtio.rom */,
+				116B9DA521E1C0A1007A28FF /* Assets.xcassets */,
+				116B9DAA21E1C0A1007A28FF /* Info.plist */,
+				116B9DAB21E1C0A1007A28FF /* main.m */,
+			);
+			path = QemuLauncher;
+			sourceTree = "<group>";
+		};
+		116B9DB221E1C9F6007A28FF /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				116B9DBA21E1D04C007A28FF /* libqemu-aarch64-softmmu.dylib */,
+				116B9DB321E1C9F7007A28FF /* libqemu-aarch64-softmmu.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		116B9D9821E1C0A0007A28FF /* QemuLauncher */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 116B9DAF21E1C0A1007A28FF /* Build configuration list for PBXNativeTarget "QemuLauncher" */;
+			buildPhases = (
+				116B9D9521E1C0A0007A28FF /* Sources */,
+				116B9D9621E1C0A0007A28FF /* Frameworks */,
+				116B9D9721E1C0A0007A28FF /* Resources */,
+				116B9DB621E1CD2A007A28FF /* Copy Files (1 item) */,
+				116B9DC821E1E359007A28FF /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = QemuLauncher;
+			productName = QemuLauncher;
+			productReference = 116B9D9921E1C0A0007A28FF /* QemuLauncher.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		116B9D9121E1C0A0007A28FF /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1010;
+				ORGANIZATIONNAME = test;
+				TargetAttributes = {
+					116B9D9821E1C0A0007A28FF = {
+						CreatedOnToolsVersion = 10.1;
+					};
+				};
+			};
+			buildConfigurationList = 116B9D9421E1C0A0007A28FF /* Build configuration list for PBXProject "QemuLauncher" */;
+			compatibilityVersion = "Xcode 9.3";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 116B9D9021E1C0A0007A28FF;
+			productRefGroup = 116B9D9A21E1C0A0007A28FF /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				116B9D9821E1C0A0007A28FF /* QemuLauncher */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		116B9D9721E1C0A0007A28FF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				116B9DA621E1C0A1007A28FF /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		116B9D9521E1C0A0007A28FF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				116B9DAC21E1C0A1007A28FF /* main.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		116B9DAD21E1C0A1007A28FF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.1;
+				LIBRARY_SEARCH_PATHS = "$(PROJECT_DIR)/../../../aarch64-softmmu";
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+			};
+			name = Debug;
+		};
+		116B9DAE21E1C0A1007A28FF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.1;
+				LIBRARY_SEARCH_PATHS = "$(PROJECT_DIR)/../../../aarch64-softmmu";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		116B9DB021E1C0A1007A28FF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 497QSARR24;
+				ENABLE_BITCODE = NO;
+				INFOPLIST_FILE = QemuLauncher/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path",
+					"@loader_path/Frameworks",
+					"@loader_path",
+				);
+				OTHER_LDFLAGS = "-lqemu-aarch64-softmmu";
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.astarasikov.QemuLauncher;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = Debug;
+		};
+		116B9DB121E1C0A1007A28FF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 497QSARR24;
+				ENABLE_BITCODE = NO;
+				INFOPLIST_FILE = QemuLauncher/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path",
+					"@loader_path/Frameworks",
+					"@loader_path",
+				);
+				OTHER_LDFLAGS = "-lqemu-aarch64-softmmu";
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.astarasikov.QemuLauncher;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		116B9D9421E1C0A0007A28FF /* Build configuration list for PBXProject "QemuLauncher" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				116B9DAD21E1C0A1007A28FF /* Debug */,
+				116B9DAE21E1C0A1007A28FF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		116B9DAF21E1C0A1007A28FF /* Build configuration list for PBXNativeTarget "QemuLauncher" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				116B9DB021E1C0A1007A28FF /* Debug */,
+				116B9DB121E1C0A1007A28FF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 116B9D9121E1C0A0007A28FF /* Project object */;
+}

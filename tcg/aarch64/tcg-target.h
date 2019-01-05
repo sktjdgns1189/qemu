@@ -141,7 +141,12 @@ typedef enum {
 
 static inline void flush_icache_range(uintptr_t start, uintptr_t stop)
 {
+#ifndef __APPLE__
     __builtin___clear_cache((char *)start, (char *)stop);
+#else
+	//TODO: write the inline impl using asm
+	//forget about it until we get UI and JIT working under XCode
+#endif
 }
 
 void tb_target_set_jmp_target(uintptr_t, uintptr_t, uintptr_t);

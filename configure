@@ -411,6 +411,7 @@ linux="no"
 solaris="no"
 profiler="no"
 cocoa="no"
+iphone="no"
 softmmu="yes"
 linux_user="no"
 bsd_user="no"
@@ -616,6 +617,20 @@ EOF
   compile_object
 }
 
+check_iphone() {
+cat > $TMPC <<EOF
+#if !defined(__APPLE__)
+#error __APPLE__ not defined
+#endif
+#include <TargetConditionals.h>
+#if !TARGET_OS_IPHONE
+#error TARGET_OS_IPHONE not defined
+#endif
+int main(void) { return 0; }
+EOF
+  compile_object
+}
+
 check_include() {
 cat > $TMPC <<EOF
 #include <$1>
@@ -648,6 +663,8 @@ elif check_define __DragonFly__ ; then
   targetos='DragonFly'
 elif check_define __NetBSD__; then
   targetos='NetBSD'
+elif check_iphone; then
+  targetos='Darwin-iOS'
 elif check_define __APPLE__; then
   targetos='Darwin'
 else
@@ -671,6 +688,9 @@ Darwin)
   if test -z "$cpu" && test "$(sysctl -n hw.optional.x86_64)" = "1"; then
     cpu="x86_64"
   fi
+  ;;
+Darwin-iOS)
+  cpu="aarch64"
   ;;
 SunOS)
   # $(uname -m) returns i86pc even on an x86_64 box, so default based on isainfo
@@ -846,6 +866,22 @@ Darwin)
   audio_possible_drivers="coreaudio sdl"
   LDFLAGS="-framework CoreFoundation -framework IOKit $LDFLAGS"
   libs_softmmu="-F/System/Library/Frameworks -framework Cocoa -framework IOKit $libs_softmmu"
+  # Disable attempts to use ObjectiveC features in os/object.h since they
+  # won't work when we're compiling with gcc as a C compiler.
+  QEMU_CFLAGS="-DOS_OBJECT_USE_OBJC=0 $QEMU_CFLAGS"
+  HOST_VARIANT_DIR="darwin"
+  supported_os="yes"
+;;
+Darwin-iOS)
+  bsd="yes"
+  darwin="yes"
+  hax="yes"
+  hvf="yes"
+  LDFLAGS_SHARED="-bundle -undefined dynamic_lookup"
+  iphone="yes"
+  audio_drv_list=""
+  audio_possible_drivers="sdl"
+  LDFLAGS="-framework Foundation -framework CoreGraphics -framework UIKit $LDFLAGS"
   # Disable attempts to use ObjectiveC features in os/object.h since they
   # won't work when we're compiling with gcc as a C compiler.
   QEMU_CFLAGS="-DOS_OBJECT_USE_OBJC=0 $QEMU_CFLAGS"
@@ -5871,7 +5907,8 @@ fi
 # Mac OS X ships with a broken assembler
 roms=
 if test \( "$cpu" = "i386" -o "$cpu" = "x86_64" \) -a \
-        "$targetos" != "Darwin" -a "$targetos" != "SunOS" -a \
+        "$targetos" != "Darwin" -a "$targetos" != "Darwin-iOS" \
+		-a "$targetos" != "SunOS" -a \
         "$softmmu" = yes ; then
     # Different host OS linkers have different ideas about the name of the ELF
     # emulation. Linux and OpenBSD/amd64 use 'elf_i386'; FreeBSD uses the _fbsd
@@ -6024,6 +6061,7 @@ echo "profiler          $profiler"
 echo "static build      $static"
 if test "$darwin" = "yes" ; then
     echo "Cocoa support     $cocoa"
+    echo "iPhone support     $iphone"
 fi
 echo "SDL support       $sdl $(echo_version $sdl $sdlversion)"
 echo "GTK support       $gtk $(echo_version $gtk $gtk_version)"
@@ -6367,6 +6405,9 @@ if test "$sdl" = "yes" ; then
 fi
 if test "$cocoa" = "yes" ; then
   echo "CONFIG_COCOA=y" >> $config_host_mak
+fi
+if test "$iphone" = "yes" ; then
+  echo "CONFIG_IPHONE=y" >> $config_host_mak
 fi
 if test "$curses" = "yes" ; then
   echo "CONFIG_CURSES=m" >> $config_host_mak

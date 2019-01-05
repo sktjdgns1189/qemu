@@ -462,7 +462,12 @@ target_ulong do_arm_semihosting(CPUARMState *env)
                 /* FIXME - should this error code be -TARGET_EFAULT ? */
                 return (uint32_t)-1;
             }
+#if 0
             ret = set_swi_errno(ts, system(s));
+#else
+			//TODO: fix this ifdef for iOS
+			ret =-1;
+#endif
             unlock_user(s, arg0, 0);
             return ret;
         }

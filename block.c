@@ -52,7 +52,7 @@
 #include <sys/ioctl.h>
 #include <sys/queue.h>
 #ifndef __DragonFly__
-#include <sys/disk.h>
+//#include <sys/disk.h>
 #endif
 #endif
 
