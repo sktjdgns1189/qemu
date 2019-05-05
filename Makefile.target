@@ -105,6 +105,8 @@ all: $(PROGS) stap
 
 obj-y += trace/
 
+obj-y += afl-llvm-rt.o
+
 #########################################################
 # cpu emulator library
 obj-y += exec.o

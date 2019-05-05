@@ -92,6 +92,7 @@ static void usage(int exitcode);
 
 static const char *interp_prefix = CONFIG_QEMU_INTERP_PREFIX;
 const char *qemu_uname_release;
+const char *qemu_fuzzfile;
 
 /* XXX: on x86 MAP_GROWSDOWN only works if ESP <= address + 32, so
    we allocate a bigger stack. Need a better solution, for example
@@ -317,6 +318,12 @@ static void handle_arg_uname(const char *arg)
     qemu_uname_release = strdup(arg);
 }
 
+static void handle_arg_fuzzfile(const char *arg)
+{
+    qemu_fuzzfile = strdup(arg);
+}
+
+
 static void handle_arg_cpu(const char *arg)
 {
     cpu_model = strdup(arg);
@@ -428,6 +435,8 @@ static const struct qemu_argument arg_table[] = {
      "argv0",      "forces target process argv[0] to be 'argv0'"},
     {"r",          "QEMU_UNAME",       true,  handle_arg_uname,
      "uname",      "set qemu uname release string to 'uname'"},
+    {"z",          "QEMU_FUZZFILE",       true,  handle_arg_fuzzfile,
+     "fuzzfile",      "set qemu fuzzer input file"},
     {"B",          "QEMU_GUEST_BASE",  true,  handle_arg_guest_base,
      "address",    "set guest_base address to 'address'"},
     {"R",          "QEMU_RESERVED_VA", true,  handle_arg_reserved_va,
