@@ -50,9 +50,11 @@ enum {
  * These go in the low byte.  Avoid using the top bit, it will
  * conflict with error returns.
  */
+#define TEE_PER ADDR_NO_RANDOMIZE | ADDR_LIMIT_32BIT
+
 enum {
     PER_LINUX =         0x0000,
-    PER_LINUX_32BIT =   0x0000 | ADDR_LIMIT_32BIT,
+    PER_LINUX_32BIT =   0x0000 | ADDR_LIMIT_32BIT | TEE_PER,
     PER_LINUX_FDPIC =   0x0000 | FDPIC_FUNCPTRS,
     PER_SVR4 =          0x0001 | STICKY_TIMEOUTS | MMAP_PAGE_ZERO,
     PER_SVR3 =          0x0002 | STICKY_TIMEOUTS | SHORT_INODE,
@@ -63,8 +65,8 @@ enum {
     PER_BSD =           0x0006,
     PER_SUNOS =         0x0006 | STICKY_TIMEOUTS,
     PER_XENIX =         0x0007 | STICKY_TIMEOUTS | SHORT_INODE,
-    PER_LINUX32 =       0x0008,
-    PER_LINUX32_3GB =   0x0008 | ADDR_LIMIT_3GB,
+    PER_LINUX32 =       0x0008 | TEE_PER,
+    PER_LINUX32_3GB =   0x0008 | ADDR_LIMIT_3GB | ADDR_NO_RANDOMIZE,
     PER_IRIX32 =        0x0009 | STICKY_TIMEOUTS,/* IRIX5 32-bit */
     PER_IRIXN32 =       0x000a | STICKY_TIMEOUTS,/* IRIX6 new 32-bit */
     PER_IRIX64 =        0x000b | STICKY_TIMEOUTS,/* IRIX6 64-bit */
@@ -286,6 +288,7 @@ static inline void init_thread(struct target_pt_regs *regs,
         regs->uregs[16] |= CPSR_T;
     }
     regs->uregs[15] = infop->entry & 0xfffffffe;
+	fprintf(stderr, "%s: regs->uregs[15]=%08x\n", __func__, regs->uregs[15]);
     regs->uregs[13] = infop->start_stack;
     /* FIXME - what to for failure of get_user()? */
     get_user_ual(regs->uregs[2], stack + 8); /* envp */
@@ -295,6 +298,8 @@ static inline void init_thread(struct target_pt_regs *regs,
     /* For uClinux PIC binaries.  */
     /* XXX: Linux does this only on ARM with no MMU (do we care ?) */
     regs->uregs[10] = infop->start_data;
+
+	regs->uregs[2] = infop->saved_auxv;
 
     /* Support ARM FDPIC.  */
     if (info_is_fdpic(infop)) {
@@ -554,6 +559,7 @@ static inline void init_thread(struct target_pt_regs *regs,
 
     regs->pc = infop->entry & ~0x3ULL;
     regs->sp = stack;
+	regs->regs[2] = infop->saved_auxv;
 }
 
 #define ELF_NREG    34
@@ -2008,6 +2014,7 @@ static abi_ulong create_elf_tables(abi_ulong p, int argc, int envc,
     /* There must be exactly DLINFO_ITEMS entries here, or the assert
      * on info->auxv_len will trigger.
      */
+#if 0
     NEW_AUX_ENT(AT_PHDR, (abi_ulong)(info->load_addr + exec->e_phoff));
     NEW_AUX_ENT(AT_PHENT, (abi_ulong)(sizeof (struct elf_phdr)));
     NEW_AUX_ENT(AT_PHNUM, (abi_ulong)(exec->e_phnum));
@@ -2037,13 +2044,21 @@ static abi_ulong create_elf_tables(abi_ulong p, int argc, int envc,
     if (u_platform) {
         NEW_AUX_ENT(AT_PLATFORM, u_platform);
     }
+#else
+    NEW_AUX_ENT(AT_BASE, (abi_ulong)(interp_info ? interp_info->load_addr : 0));
+    NEW_AUX_ENT(AT_PHDR, (abi_ulong)(info->load_addr + exec->e_phoff));
+    NEW_AUX_ENT(AT_PHENT, (abi_ulong)(sizeof (struct elf_phdr)));
+    NEW_AUX_ENT(AT_PHNUM, (abi_ulong)(exec->e_phnum));
+    NEW_AUX_ENT(AT_ENTRY, (abi_ulong)info->entry);
+#endif
+
     NEW_AUX_ENT (AT_NULL, 0);
 #undef NEW_AUX_ENT
 
     /* Check that our initial calculation of the auxv length matches how much
      * we actually put into it.
      */
-    assert(info->auxv_len == u_auxv - info->saved_auxv);
+    //assert(info->auxv_len == u_auxv - info->saved_auxv);
 
     put_user_ual(argc, u_argc);
 
@@ -2413,6 +2428,8 @@ static void load_elf_image(const char *image_name, int image_fd,
     info->end_data = 0;
     info->brk = 0;
     info->elf_flags = ehdr->e_flags;
+	fprintf(stderr, "%s: load_bias=%016x entry=%016x ehdr->e_entry=%016x [%s]\n",
+			__func__, (long long)load_bias, (long long)info->entry, (long long)ehdr->e_entry, image_name);
 
     for (i = 0; i < ehdr->e_phnum; i++) {
         struct elf_phdr *eppnt = phdr + i;

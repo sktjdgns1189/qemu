@@ -11962,6 +11962,583 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
     return ret;
 }
 
+static const char *TEEGRIS_syscall_names[] = {
+	[0] = "NONE",
+	[1] = "thread_create",
+	[2] = "thread_wait",
+	[3] = "mmap",
+	[4] = "munmap",
+	[5] = "epoll_ctl",
+	[6] = "close",
+	[7] = "open",
+	[8] = "read",
+	[9] = "write",
+	[10] = "epoll_wait",
+	[11] = "spawn",
+	[12] = "panic",
+	[13] = "getcpu",
+	[14] = "isMemoryAccessibleWithPermissions",
+	[15] = "ioctl",
+	[16] = "gettid",
+	[17] = "getpid",
+	[18] = "syslog",
+	[19] = "gettime",
+	[20] = "sched_setaffinity",
+	[21] = "sched_getaffinity",
+	[22] = "getcluster",
+	[23] = "group_create",
+	[24] = "group_remove",
+	[25] = "enter_critical",
+	[26] = "exit_critical",
+	[27] = "user_add_group",
+	[28] = "user_rm_group",
+	[30] = "set_egid",
+	[35] = "thread_kill",
+	[36] = "sigpending",
+	[37] = "sigsuspend",
+	[38] = "sigaction",
+	[39] = "sigprocmask",
+	[40] = "signal",
+	[42] = "raise",
+	[43] = "alarm",
+	[44] = "nanosleep",
+	[45] = "sched_yield",
+	[46] = "exit_thread",
+	[47] = "set_priority",
+	[48] = "get_priority",
+	[49] = "exit",
+	[50] = "chown",
+	[51] = "user_create",
+	[52] = "user_remove",
+	[53] = "get_euid",
+	[54] = "set_euid",
+	[55] = "restore_euid",
+	[56] = "recv",
+	[57] = "send",
+	[58] = "sendmsg",
+	[59] = "recvmsg",
+	[60] = "socketpair",
+	[61] = "ftruncate",
+	[62] = "unlink",
+	[63] = "clock_gettime",
+	[65] = "arm_timer_get_frequency",
+	[66] = "socket",
+	[67] = "accept",
+	[68] = "bind",
+	[69] = "listen",
+	[70] = "connect",
+	[71] = "getsockopt",
+	[73] = "file_close_by_fd",
+	[75] = "add_policy_profile",
+	[76] = "rm_policy_profile",
+	[80] = "set_TPIDR_EL0_settls",
+	[81] = "setitimer",
+	[82] = "getitimer",
+	[84] = "waitpid_panicked",
+	[85] = "cookie_add",
+	[86] = "get_egid",
+	[87] = "thread_detach",
+	[88] = "setsockopt",
+	[89] = "get_sysconf",
+	[90] = "fstat",
+	[91] = "getdirent",
+	[92] = "lseek",
+	[100] = "prlimit",
+
+};
+
+struct teegris_fake_fd {
+	int fd;
+	const char *filename;
+};
+
+enum teegris_fake_file {
+	TEEGRIS_FAKE_FILE_SYS_PROC = 0,
+	TEEGRIS_FAKE_FILE_DEV_CRYPTO = 1,
+};
+
+#define TEEGRIS_FAKE_FD(idx) (0x55aabbcc + (idx))
+#define TEEGRIS_MAKE_FAKE_FD(idx, name) {\
+	.fd = TEEGRIS_FAKE_FD(idx), .filename = name, \
+}
+
+static struct teegris_fake_fd teegris_fake_fds[] = {
+	TEEGRIS_MAKE_FAKE_FD(TEEGRIS_FAKE_FILE_SYS_PROC, "sys://proc"),
+	TEEGRIS_MAKE_FAKE_FD(TEEGRIS_FAKE_FILE_DEV_CRYPTO, "dev://crypto"),
+};
+
+//TODO: make a per-thread context struct
+static uint64_t epoll_data;
+
+static void *tz_alloc32(size_t size)
+{
+	size_t ret;
+	ret = target_mmap(0, size, PROT_READ | PROT_WRITE,
+			MAP_ANON | MAP_PRIVATE | MAP_32BIT, 0, 0);
+	fprintf(stderr, "%s: ret=%lx\n", __func__, ret);
+	if ((ret & 0xffffffff) == 0xffffffff) {
+		return 0;
+	}
+	return (void*)(ret & 0xffffffff);
+}
+
+extern const char *qemu_fuzzfile;
+
+//only for the 'keymaster' applet for now
+//TEE_CMD=777 ../arm-linux-user/qemu-arm  -cpu max ./00000000-0000-0000-0000-4b45594d5354.elf
+static void tz_invoke_direct_keymaster(void *cpu_env)
+{
+	struct tz_cmd {
+		uint64_t ptr_in;
+		uint64_t ptr_out;
+	};
+	struct tz_cmd_buf_desc_32 {
+		uint32_t len;
+		uint32_t has_data;
+		uint32_t ptr_data;
+	};
+
+	struct tz_cmd_host_buf {
+		struct tz_cmd desc;
+		struct tz_cmd_buf_desc_32 in;
+		struct tz_cmd_buf_desc_32 out;
+	};
+
+	struct tz_cmd_host_buf *host_buf = NULL;
+	host_buf = tz_alloc32(sizeof(*host_buf));
+	struct tz_cmd_host_buf *lhost_buf = lock_user(VERIFY_WRITE, host_buf, sizeof(*host_buf), 0);
+	lhost_buf->desc.ptr_in = &host_buf->in;
+	lhost_buf->desc.ptr_out = &host_buf->out;
+
+	size_t size_in = 128;
+	void *ptr_in = tz_alloc32(size_in);
+	lhost_buf->in.len = size_in;
+	lhost_buf->in.has_data = 1;
+	lhost_buf->in.ptr_data = (uint32_t)ptr_in;
+
+	size_t size_out = 128;
+	void *ptr_out = tz_alloc32(size_out);
+	lhost_buf->out.len = size_out;
+	lhost_buf->out.has_data = 1;
+	lhost_buf->out.ptr_data = (uint32_t)ptr_out;
+	unlock_user(lhost_buf, host_buf, sizeof(*host_buf));
+
+	void *lptr_in = lock_user(VERIFY_WRITE, ptr_in, size_in, 0);
+	memset(lptr_in, 'A', size_in);
+	((uint32_t*)lptr_in)[0] = 0x30038001;
+	((uint32_t*)lptr_in)[1] = 0x3;
+
+	if (qemu_fuzzfile) {
+		FILE *fin = fopen(qemu_fuzzfile, "rb");
+		if (fin) {
+			fprintf(stderr, "%s: reading input buffer from %s\n",
+					__func__, qemu_fuzzfile);
+			fread(lptr_in, 1, size_in, fin);
+			fclose(fin);
+		}
+		fprintf(stderr, "%s: input buffer %08x %08x %08x %08x\n",
+				__func__,
+				((uint32_t*)lptr_in)[0],
+				((uint32_t*)lptr_in)[1],
+				((uint32_t*)lptr_in)[2],
+				((uint32_t*)lptr_in)[3]);
+	}
+	unlock_user(lptr_in, ptr_in, size_in);
+
+#ifdef TARGET_ARM
+	CPUARMState *env = cpu_env;
+
+	fprintf(stderr, "before set reg\n");
+	env->regs[3] = (uint32_t)host_buf;
+	env->regs[14] = 0xffff0f42;
+	env->regs[15] = (uint32_t)(0x16120 + 0xfff8f000 - 0x1000);
+
+	//load_bias=00000000fff8f000 entry=00000000fff94d50 ehdr->e_entry=0000000000005d50
+	//the "entry" in ELF is at 0x15d50 in the disassembler due to the load offset
+	//being 0x10000
+	//
+	//So we need to add the load_bias and subtract this offset.
+	//It would be better to propagate this info from the ELF parser though
+	fprintf(stderr, "after set reg pc=%08x\n", env->regs[15]);
+#endif
+}
+
+static void tz_invoke_direct_vaultkeeper(void *cpu_env)
+{
+	struct tz_cmd_host_buf {
+		uint32_t ptr_in;
+		uint32_t padding;
+		uint32_t ptr_out;
+		uint32_t padding2;
+	} __attribute__((packed));
+
+	size_t size_in = 0xa4c8;
+	void *ptr_in = tz_alloc32(size_in);
+
+	size_t size_out = 0xa4d4;
+	void *ptr_out = tz_alloc32(size_out);
+
+	struct tz_cmd_host_buf *host_buf = NULL;
+	host_buf = tz_alloc32(sizeof(*host_buf));
+	struct tz_cmd_host_buf *lhost_buf = lock_user(VERIFY_WRITE, host_buf, sizeof(*host_buf), 0);
+	{
+		lhost_buf->ptr_in = (uint32_t)ptr_in;
+		lhost_buf->ptr_out = (uint32_t)ptr_out;
+		lhost_buf->padding = lhost_buf->padding2 = 0x41414141;
+	}
+	unlock_user(lhost_buf, host_buf, sizeof(*host_buf));
+
+	void *lptr_in = lock_user(VERIFY_WRITE, ptr_in, size_in, 0);
+	{
+		memset(lptr_in, 'A', size_in);
+		((uint32_t*)lptr_in)[0] = 0x30038001;
+		((uint32_t*)lptr_in)[1] = 0x3;
+		((uint32_t*)lptr_in)[2] = 0x41414141;
+	}
+
+	if (qemu_fuzzfile) {
+		FILE *fin = fopen(qemu_fuzzfile, "rb");
+		if (fin) {
+			fprintf(stderr, "%s: reading input buffer from %s\n",
+					__func__, qemu_fuzzfile);
+			fread(lptr_in, 1, size_in, fin);
+			fclose(fin);
+		}
+		fprintf(stderr, "%s: input buffer %08x %08x %08x %08x\n",
+				__func__,
+				((uint32_t*)lptr_in)[0],
+				((uint32_t*)lptr_in)[1],
+				((uint32_t*)lptr_in)[2],
+				((uint32_t*)lptr_in)[3]);
+	}
+	unlock_user(lptr_in, ptr_in, size_in);
+
+#ifdef TARGET_ARM
+	CPUARMState *env = cpu_env;
+
+	fprintf(stderr, "before set reg\n");
+	env->regs[2] = 7 | ((6 << 0x1c) >> 0x18);
+	env->regs[3] = (uint32_t)host_buf;
+	env->regs[14] = 0xffff0f42;
+	env->regs[15] = (uint32_t)((0x11c64ull - 0x10000ull) + 0xfffc4000ull);
+
+	//load_bias=00000000fff8f000 entry=00000000fff94d50 ehdr->e_entry=0000000000005d50
+	//the "entry" in ELF is at 0x15d50 in the disassembler due to the load offset
+	//being 0x10000
+	//
+	//So we need to add the load_bias and subtract this offset.
+	//It would be better to propagate this info from the ELF parser though
+	fprintf(stderr, "after set reg pc=%08x\n", env->regs[15]);
+#endif
+    CPUState *cpu = ENV_GET_CPU(env);
+	tb_flush(cpu);
+}
+
+static abi_long do_syscall_teegris(void *cpu_env, int num, abi_long arg1,
+                            abi_long arg2, abi_long arg3, abi_long arg4,
+                            abi_long arg5, abi_long arg6, abi_long arg7,
+                            abi_long arg8)
+{
+    CPUState *cpu = ENV_GET_CPU(cpu_env);
+    abi_long ret;
+	ret = 0;
+	uint64_t tmp;
+	uint32_t t32;
+
+	const char *sc_name = NULL;
+	if ((unsigned)num < ARRAY_SIZE(TEEGRIS_syscall_names)) {
+		sc_name = TEEGRIS_syscall_names[(unsigned)num];
+	}
+	if (!sc_name) {
+		sc_name = "UNIMPL";
+	}
+
+	fprintf(stderr, "\n>>> %s: num=%d (0x%x) '%s' arg1=%08lx arg2=%08lx arg3=%08lx\n"
+			"arg4=%08lx arg5=%08lx arg6=%08lx arg7=%08lx arg8=%08lx\n",
+			__func__, num, num, sc_name, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+
+	switch (num) {
+		case 3://mmap
+			fprintf(stderr, "%s: mmap fd=%08x addr=%08x len=%08x prot=%08x flags=%08x offset=%08x\n",
+					__func__, arg1, arg2, arg3, arg4, arg5, arg6);
+			//TEEGRIS mmap: FD[0], ADDR[1], LEN[2], PROT[3], FLAGS[4], OFFSET[5]
+			//POSIX mmap: ADDR[0], LEN[1], PROT[2], FLAGS[3], FD[4], OFFSET[5]
+			ret = -1;
+			{
+				abi_ulong addr, len, prot, flags, fd, offset;
+				fd = arg1;
+				addr = arg2;
+				len = arg3;
+				prot = arg4;
+				flags = arg5;
+				offset = arg6;
+
+				//prot = PROT_READ | PROT_WRITE | PROT_EXEC;
+				len = (len + 0xfff) & 0xfffff000;
+				offset <<= 0xc;
+
+				flags = MAP_PRIVATE;
+				if (fd == 0xffffffff || (fd == 0xffffffffffffffffull)) {
+					flags |= MAP_ANON;
+				}
+				if (addr) {
+					flags |= MAP_FIXED;
+				}
+				ret = get_errno(target_mmap(addr, len, prot, flags, fd, offset));
+			}
+			fprintf(stderr, "%s: mmap ret=%08x\n", __func__, ret);
+			if ((ret & 0xffffff00) == 0xffffff00) {
+				perror("mmap");
+			}
+
+			break;
+		case 5://epoll_ctl;
+			/*
+			 * ok, here's the deal with epoll and sockets
+			 * currently we're returning zero everywhere for FDs
+			 * and this mostly works to reach the event loops
+			 * but we should actually instead allocate FDs dynamically
+			 * and associate per-FD data with them.
+			 * An alternative is to just call Linux syscalls but then
+			 * we'll need a standalone program to send the commands
+			 * over the sockets.
+			 */
+
+			if (get_user_u64(tmp, arg4 + 4)) {
+				fprintf(stderr, "%s: failed to read epoll_ctl data\n",
+						__func__);
+			}
+			else {
+				fprintf(stderr, "%s: epoll data=%016lx\n", __func__, tmp);
+				if (tmp) {
+					epoll_data = tmp;
+				}
+			}
+			break;
+		case 7://open
+			{
+				char *str;
+				char *path;
+				str = lock_user_string(arg1);
+				if (str) {
+					fprintf(stderr, "%s: open '%s'\n", __func__, str);
+					path = str;
+					if (!strcmp(str, "dev://random")) {
+						path = "/dev/urandom";
+					}
+					for (size_t idx = 0; idx < ARRAY_SIZE(teegris_fake_fds); idx++) {
+						if (!strcmp(str, teegris_fake_fds[idx].filename)) {
+							ret = teegris_fake_fds[idx].fd;
+							goto done_teegris_open;
+						}
+					}
+
+					ret = get_errno(do_openat(cpu_env, AT_FDCWD, path,
+								  O_RDWR,
+                                  //target_to_host_bitmask(arg2, fcntl_flags_tbl),
+                                  arg3));
+					fd_trans_unregister(ret);
+done_teegris_open:
+					unlock_user(str, arg1, 0);
+				}
+				if (ret < 0) {
+					ret = 0x55bbccdd;
+				}
+			}
+			break;
+		case 8://read
+			if (arg2 == 0 && arg3 == 0) {
+				return get_errno(safe_read(arg1, 0, 0));
+			} else {
+				void *p;
+				if (!(p = lock_user(VERIFY_WRITE, arg2, arg3, 0)))
+					return -TARGET_EFAULT;
+				ret = get_errno(safe_read(arg1, p, arg3));
+				if (ret >= 0 &&
+					fd_trans_host_to_target_data(arg1)) {
+					ret = fd_trans_host_to_target_data(arg1)(p, ret);
+				}
+				unlock_user(p, arg2, ret);
+			}
+			//return ret;
+			break;
+		case 10://epoll_wait
+			{
+				uint32_t val = 0;
+				if (rand() & 1) {
+					val = 1 << 4;
+				}
+				else {
+					val = 1 << 0;
+				}
+				put_user_u32(val, arg2);
+				put_user_u64(epoll_data, arg2 + 4);
+			}
+			ret = 1;
+			break;
+		case 12://panic
+			fprintf(stderr, "%s: panic\n", __func__);
+			if (1) {
+				exit(-42);
+			}
+			else {
+				//so that we can debug in GDB
+				target_siginfo_t info;
+				info.si_signo = SIGSEGV;
+				info.si_errno = 0;
+				info.si_code = TARGET_SEGV_MAPERR;
+				info._sifields._sigfault._addr = 0x41414141;
+				queue_signal((CPUArchState *)cpu_env, info.si_signo,
+							 QEMU_SI_FAULT, &info);
+			}
+			break;
+		case 14://isMemoryAccessibleWithPermissions
+			ret = 0;
+			break;
+		case 15://ioctl
+			ret = 0;
+			if (arg2 == 12) {
+				put_user_u32(0x554d45, arg3);
+				put_user_u32(0, arg3 + 4);
+			}
+			for (size_t idx = 0; idx < ARRAY_SIZE(teegris_fake_fds); idx++) {
+				if (teegris_fake_fds[idx].fd == arg1) {
+					fprintf(stderr, "%s: IOCTL on '%s'\n", __func__,
+							teegris_fake_fds[idx].filename);
+				}
+			}
+			if (arg1 == TEEGRIS_FAKE_FD(TEEGRIS_FAKE_FILE_DEV_CRYPTO)) {
+				fprintf(stderr, "%s: dev crypto ioctl %d\n", __func__, arg2);
+				if (arg2 == 7)
+				{
+					unsigned v0;
+					unsigned cookie;
+					get_user_u32(v0, arg3);
+					get_user_u32(cookie, arg3 + 0xa0);
+					fprintf(stderr, "%s: dev crypto ioctl 7 req=%08x cookie=%08x\n",
+							__func__, v0, cookie);
+
+					for (size_t i = 0; i < 0x6c / 4; i++) {
+						put_user_u32(rand(), arg3 + i * 4);
+					}
+				}
+				if (arg2 == 0) { //INIT
+					for (size_t i = 0; i < 0x6c / 4; i++) {
+						put_user_u32(rand(), arg3 + i * 4);
+					}
+				}
+				if (arg2 == 1) {
+					for (size_t i = 0; i < 0x6c / 4; i++) {
+						put_user_u32(rand(), arg3 + i * 4);
+					}
+
+					//this makes libcrypto happy but I'm not sure
+					//we're actually returning enough of random data
+					ret = 1;
+				}
+			}
+			break;
+		case 17://getpid
+			ret = 2;
+			break;
+		case 18://syslog
+			{
+				char *str;
+				str = lock_user_string(arg2);
+				if (str) {
+					fprintf(stderr, "%s: syslog '%s'\n",
+							__func__, str);
+					unlock_user(str, arg2, 0);
+				}
+			}
+			break;
+		case 59://recvmsg
+			//iovec at offset 0x28
+			//iov_len at iovec + 8
+			//iovec data at iovec + 0xc
+#if TARGET_ABI_BITS == 32
+#define RECVMSG_IOV_OFF 0x14
+#else
+#define RECVMSG_IOV_OFF 0x28
+#endif
+
+			get_user_u32(t32, arg2 + RECVMSG_IOV_OFF + 8);
+			fprintf(stderr, "%s: recvmsg in iov_len=%08x\n",
+					__func__, t32);
+
+			{
+				//kill me please
+				static int recv_type = 0;
+				if (!recv_type) {
+					recv_type = 1;
+					put_user_u32(1, arg2 + RECVMSG_IOV_OFF + 8);
+					put_user_u32(0, arg2 + RECVMSG_IOV_OFF + 0xc);
+				}
+				else {
+					//we should probably just translate to Linux socket
+					//calls and have a separate daemon emulating EL1
+					if (!get_user_u64(tmp, arg2)) {
+						fprintf(stderr, "%s: recvmsg ptr %08lx\n", __func__, tmp);
+
+						int cmd = 123456789;
+						char *cmd_env = getenv("TEE_CMD");
+						if (cmd_env) {
+							cmd = atoi(cmd_env);
+						}
+
+						if (cmd == 777) {
+							tz_invoke_direct_keymaster(cpu_env);
+						}
+						else if (cmd == 888) {
+							tz_invoke_direct_vaultkeeper(cpu_env);
+						}
+
+						put_user_u32(cmd, tmp);
+					}
+
+					put_user_u32(2, arg2 + RECVMSG_IOV_OFF + 8);
+					for (size_t off = 0; off < 0x1c; off += 4) {
+						put_user_u32(0, arg2 + RECVMSG_IOV_OFF + 0xc + off);
+					}
+				}
+			}
+			ret = 1;
+			break;
+		case 80://settls (TPIDR_EL0)
+			cpu_set_tls(cpu_env, arg1);
+			break;
+		case 90://fstat
+			{
+				struct stat st;
+				ret = get_errno(fstat(arg1, &st));
+				if (!is_error(ret)) {
+					struct teegris_stat {
+						uint32_t a;
+						uint32_t b;
+						uint32_t c;
+						uint32_t d;
+					};
+					struct teegris_stat *target_st;
+					if (!lock_user_struct(VERIFY_WRITE, target_st, arg2, 0))
+					{
+						fprintf(stderr, "%s: failed to lock struct for stat\n", __func__);
+						ret = -TARGET_EFAULT;
+						goto done;
+					}
+					__put_user(st.st_size, &target_st->d);
+					unlock_user_struct(target_st, arg2, 1);
+				}
+			}
+			break;
+		default:
+			break;
+	}
+
+done:
+	fprintf(stderr, "%s: ret=%08x\n", __func__, ret);
+	return ret;
+}
+
 abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
                     abi_long arg2, abi_long arg3, abi_long arg4,
                     abi_long arg5, abi_long arg6, abi_long arg7,
@@ -11989,11 +12566,11 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
 
     if (unlikely(do_strace)) {
         print_syscall(num, arg1, arg2, arg3, arg4, arg5, arg6);
-        ret = do_syscall1(cpu_env, num, arg1, arg2, arg3, arg4,
+        ret = do_syscall_teegris(cpu_env, num, arg1, arg2, arg3, arg4,
                           arg5, arg6, arg7, arg8);
         print_syscall_ret(num, ret);
     } else {
-        ret = do_syscall1(cpu_env, num, arg1, arg2, arg3, arg4,
+        ret = do_syscall_teegris(cpu_env, num, arg1, arg2, arg3, arg4,
                           arg5, arg6, arg7, arg8);
     }
 

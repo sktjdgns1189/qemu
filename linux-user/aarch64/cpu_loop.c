@@ -88,7 +88,11 @@ void cpu_loop(CPUARMState *env)
         switch (trapnr) {
         case EXCP_SWI:
             ret = do_syscall(env,
+#if 0 //linux
                              env->xregs[8],
+#else //teegris
+                             env->xregs[7],
+#endif
                              env->xregs[0],
                              env->xregs[1],
                              env->xregs[2],

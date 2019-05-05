@@ -157,6 +157,12 @@ do_kernel_trap(CPUARMState *env)
     uint32_t val;
 
     switch (env->regs[15]) {
+		printf("%s:pc=%08x\n", __func__, env->regs[15]);
+	case 0xffff0f42:
+		//TEEGRIS fuzzer return value
+		printf("%s: TEEGRIS fuzzing done OK\n", __func__);
+		exit(0);
+		break;
     case 0xffff0fa0: /* __kernel_memory_barrier */
         /* ??? No-op. Will need to do better for SMP.  */
         break;
@@ -322,7 +328,7 @@ void cpu_loop(CPUARMState *env)
                         n = insn & 0xffffff;
                     }
                 }
-
+#if 0
                 if (n == ARM_NR_cacheflush) {
                     /* nop */
                 } else if (n == 0 || n >= ARM_SYSCALL_BASE || env->thumb) {
@@ -354,9 +360,11 @@ void cpu_loop(CPUARMState *env)
                             env->regs[0] = -TARGET_ENOSYS;
                             break;
                         }
-                    } else {
+                    } else
+#endif
+					{
                         ret = do_syscall(env,
-                                         n,
+                                         env->regs[7],
                                          env->regs[0],
                                          env->regs[1],
                                          env->regs[2],
@@ -370,9 +378,11 @@ void cpu_loop(CPUARMState *env)
                             env->regs[0] = ret;
                         }
                     }
+#if 0
                 } else {
                     goto error;
                 }
+#endif
             }
             break;
         case EXCP_SEMIHOST:
