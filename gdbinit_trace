@@ -1,0 +1,9 @@
+target remote tcp::1234
+set pagination off
+set output-radix 16
+set width unlimited
+
+while 1
+	si
+	info registers
+end
