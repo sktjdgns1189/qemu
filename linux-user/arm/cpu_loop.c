@@ -162,6 +162,11 @@ do_kernel_trap(CPUARMState *env)
 		printf("%s: TEEGRIS fuzzing done OK\n", __func__);
 		exit(0);
 		break;
+	case 0xffff0f62:
+		//TEEGRIS fuzzer progress indicator
+		printf("%s: TEEGRIS PC_SUCCESS\n", __func__);
+		exit(0);
+		break;
     case 0xffff0fa0: /* __kernel_memory_barrier */
         /* ??? No-op. Will need to do better for SMP.  */
         break;
