@@ -38,6 +38,8 @@
 #include "sysemu/cpus.h"
 #include "sysemu/replay.h"
 
+#include "../../afl-qemu-cpu-inl.h"
+
 /* -icount align implementation. */
 
 typedef struct SyncClocks {
@@ -146,6 +148,8 @@ static inline tcg_target_ulong cpu_tb_exec(CPUState *cpu, TranslationBlock *itb)
     int tb_exit;
     uint8_t *tb_ptr = itb->tc.ptr;
 
+    AFL_QEMU_CPU_SNIPPET2;
+
     qemu_log_mask_and_addr(CPU_LOG_EXEC, itb->pc,
                            "Trace %d: %p ["
                            TARGET_FMT_lx "/" TARGET_FMT_lx "/%#x] %s\n",
@@ -216,6 +220,8 @@ static void cpu_exec_nocache(CPUState *cpu, int max_cycles,
     mmap_lock();
     tb = tb_gen_code(cpu, orig_tb->pc, orig_tb->cs_base,
                      orig_tb->flags, cflags);
+    AFL_QEMU_CPU_SNIPPET1;
+    afl_request_tsl(orig_tb->pc, orig_tb->cs_base, orig_tb->flags);
     tb->orig_tb = orig_tb;
     mmap_unlock();
 
@@ -246,6 +252,7 @@ void cpu_exec_step_atomic(CPUState *cpu)
         if (tb == NULL) {
             mmap_lock();
             tb = tb_gen_code(cpu, pc, cs_base, flags, cflags);
+	    AFL_QEMU_CPU_SNIPPET1;
             mmap_unlock();
         }
 
@@ -406,6 +413,7 @@ static inline TranslationBlock *tb_find(CPUState *cpu,
     if (tb == NULL) {
         mmap_lock();
         tb = tb_gen_code(cpu, pc, cs_base, flags, cf_mask);
+	AFL_QEMU_CPU_SNIPPET1;
         mmap_unlock();
         /* We add the TB in the virtual pc hash table for the fast lookup */
         atomic_set(&cpu->tb_jmp_cache[tb_jmp_cache_hash_func(pc)], tb);

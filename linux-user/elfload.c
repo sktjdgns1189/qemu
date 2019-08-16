@@ -23,6 +23,8 @@
 
 #define ELF_OSABI   ELFOSABI_SYSV
 
+extern abi_ulong afl_entry_point, afl_start_code, afl_end_code;
+
 /* from personality.h */
 
 /*
@@ -2431,6 +2433,8 @@ static void load_elf_image(const char *image_name, int image_fd,
 	fprintf(stderr, "%s: load_bias=%016x entry=%016x ehdr->e_entry=%016x [%s]\n",
 			__func__, (long long)load_bias, (long long)info->entry, (long long)ehdr->e_entry, image_name);
 
+    if (!afl_entry_point) afl_entry_point = info->entry;
+
     for (i = 0; i < ehdr->e_phnum; i++) {
         struct elf_phdr *eppnt = phdr + i;
         if (eppnt->p_type == PT_LOAD) {
@@ -2473,9 +2477,17 @@ static void load_elf_image(const char *image_name, int image_fd,
             if (elf_prot & PROT_EXEC) {
                 if (vaddr < info->start_code) {
                     info->start_code = vaddr;
+                    if (!afl_start_code) {
+			    afl_start_code = vaddr;
+			    fprintf(stderr, "%s: afl_start_code=%p\n", __func__, (void*)afl_start_code);
+		    }
                 }
                 if (vaddr_ef > info->end_code) {
                     info->end_code = vaddr_ef;
+                    if (!afl_end_code) {
+			    afl_end_code = vaddr_ef;
+			    fprintf(stderr, "%s: afl_end_code=%p\n", __func__, (void*)afl_end_code);
+		    }
                 }
             }
             if (elf_prot & PROT_WRITE) {

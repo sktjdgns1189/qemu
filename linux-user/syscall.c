@@ -115,6 +115,8 @@
 #include "qapi/error.h"
 #include "fd-trans.h"
 
+extern unsigned int afl_forksrv_pid;
+
 #ifndef CLONE_IO
 #define CLONE_IO                0x80000000      /* Clone io context */
 #endif
@@ -12055,6 +12057,8 @@ struct teegris_fake_fd {
 enum teegris_fake_file {
 	TEEGRIS_FAKE_FILE_SYS_PROC = 0,
 	TEEGRIS_FAKE_FILE_DEV_CRYPTO = 1,
+	TEEGRIS_FAKE_FILE_DEV_PHYS = 2,
+	TEEGRIS_FAKE_FILE_DEV_SSAPI = 3,
 };
 
 #define TEEGRIS_FAKE_FD(idx) (0x55aabbcc + (idx))
@@ -12065,10 +12069,78 @@ enum teegris_fake_file {
 static struct teegris_fake_fd teegris_fake_fds[] = {
 	TEEGRIS_MAKE_FAKE_FD(TEEGRIS_FAKE_FILE_SYS_PROC, "sys://proc"),
 	TEEGRIS_MAKE_FAKE_FD(TEEGRIS_FAKE_FILE_DEV_CRYPTO, "dev://crypto"),
+	TEEGRIS_MAKE_FAKE_FD(TEEGRIS_FAKE_FILE_DEV_PHYS, "dev://phys"),
+	TEEGRIS_MAKE_FAKE_FD(TEEGRIS_FAKE_FILE_DEV_SSAPI, "dev://ssapi"),
 };
 
 //TODO: make a per-thread context struct
 static uint64_t epoll_data;
+
+static uint32_t teegris_ta_entrypoint(const char *filename)
+{
+	char shell_cmd[256] = {};
+	const char *fmt = "objdump -tT %s | grep TA_InvokeCommandEntryPoint | head -n1 | awk '{print $1}'";
+	int rc = snprintf(shell_cmd, sizeof(shell_cmd), fmt, filename);
+	if ((rc < 0) || (rc >= sizeof(shell_cmd))) {
+		fprintf(stderr, "%s: file path too long\n", __func__);
+		goto fail_parse_sym;
+	}
+	FILE *fd = NULL;
+	unsigned sym_addr = 0;
+	fd = popen(shell_cmd, "r");
+	if (!fd) {
+		fprintf(stderr, "%s: failed to popen objdump\n", __func__);
+		goto fail_parse_sym;
+	}
+	if (fscanf(fd, "%x\n", &sym_addr) < 1) {
+		fprintf(stderr, "%s: failed to resolve the symbol\n", __func__);
+		goto fail_parse_sym;
+	}
+	fprintf(stderr, "%s: TA_InvokeCommandEntryPoint is %08x\n",
+			__func__, sym_addr);
+	fclose(fd);
+	return sym_addr;
+fail_parse_sym:
+	return 0;
+}
+
+static uint32_t teegris_cur_ta_invoke_ep(void *cpu_env)
+{
+	CPUARMState *env = cpu_env;
+	CPUState *cpu;
+	TaskState *ts;
+	cpu = ENV_GET_CPU(env);
+	ts = (TaskState *)cpu->opaque;
+	uint32_t ta_ep = 0;
+	struct image_info *info = ts->info;
+	if (!info) {
+		fprintf(stderr, "%s: failed to get image info\n", __func__);
+		exit(-1);
+	}
+	else {
+		char *str = NULL;
+		str = lock_user_string(info->file_string);
+		fprintf(stderr, "%s: image name '%s'\n",
+				__func__, str);
+
+		ta_ep = teegris_ta_entrypoint(str);
+		unlock_user(str, info->file_string, 0);
+
+		//no, for reals. load_addr is equal to load_bias during ELF
+		//loading but load_bias at runtime is weird
+		uint32_t load_bias = info->load_addr;
+
+		if (!ta_ep) {
+			fprintf(stderr, "%s: failed to find TA EP\n", __func__);
+			exit(-1);
+		}
+		fprintf(stderr, "%s: TA EP %08x\n", __func__, ta_ep);
+		ta_ep += load_bias;
+		fprintf(stderr, "%s: biased TA EP %08x\n", __func__, ta_ep);
+		return ta_ep;
+	}
+	return 0;
+}
 
 static void *tz_alloc32(size_t size)
 {
@@ -12089,93 +12161,115 @@ extern const char *qemu_fuzzfile;
 static void tz_invoke_direct_keymaster(void *cpu_env)
 {
 	struct tz_cmd {
-		uint64_t ptr_in;
-		uint64_t ptr_out;
+		uint32_t ptr_in;
+		uint32_t ptr_in_size;
+		uint32_t ptr_out;
+		uint32_t ptr_out_size;
 	};
-	struct tz_cmd_buf_desc_32 {
+	struct km_buf_hdr {
 		uint32_t len;
 		uint32_t has_data;
-		uint32_t ptr_data;
+	};
+	
+	enum {
+		KM_IN_SIZE = 0x19000,
+		KM_OUT_SIZE = 0x100,
 	};
 
-	struct tz_cmd_host_buf {
-		struct tz_cmd desc;
-		struct tz_cmd_buf_desc_32 in;
-		struct tz_cmd_buf_desc_32 out;
+	struct km_buf_in {
+		struct km_buf_hdr buf_hdr;
+		char payload[KM_IN_SIZE];
 	};
 
-	struct tz_cmd_host_buf *host_buf = NULL;
+	struct km_buf_out {
+		struct km_buf_hdr buf_hdr;
+		char payload[KM_OUT_SIZE];
+	};
+
+	struct tz_cmd *host_buf = NULL;
 	host_buf = tz_alloc32(sizeof(*host_buf));
-	struct tz_cmd_host_buf *lhost_buf = lock_user(VERIFY_WRITE, host_buf, sizeof(*host_buf), 0);
-	lhost_buf->desc.ptr_in = &host_buf->in;
-	lhost_buf->desc.ptr_out = &host_buf->out;
 
-	size_t size_in = 128;
-	void *ptr_in = tz_alloc32(size_in);
-	lhost_buf->in.len = size_in;
-	lhost_buf->in.has_data = 1;
-	lhost_buf->in.ptr_data = (uint32_t)ptr_in;
+	struct km_buf_in *km_in = tz_alloc32(sizeof(struct km_buf_in));
+	struct km_buf_out *km_out = tz_alloc32(sizeof(struct km_buf_out));
 
-	size_t size_out = 128;
-	void *ptr_out = tz_alloc32(size_out);
-	lhost_buf->out.len = size_out;
-	lhost_buf->out.has_data = 1;
-	lhost_buf->out.ptr_data = (uint32_t)ptr_out;
-	unlock_user(lhost_buf, host_buf, sizeof(*host_buf));
+	struct tz_cmd *lhost_buf = lock_user(VERIFY_WRITE, host_buf, sizeof(*host_buf), 0);
+	lhost_buf->ptr_in = km_in;
+	lhost_buf->ptr_in_size = sizeof(*km_in);
+	lhost_buf->ptr_out = km_out;
+	lhost_buf->ptr_out_size = sizeof(*km_out);
+	unlock_user(lhost_buf, host_buf, 0);
 
-	void *lptr_in = lock_user(VERIFY_WRITE, ptr_in, size_in, 0);
-	memset(lptr_in, 'A', size_in);
-	((uint32_t*)lptr_in)[0] = 0x30038001;
-	((uint32_t*)lptr_in)[1] = 0x3;
+	struct km_buf_in *lptr_in = lock_user(VERIFY_WRITE, km_in, sizeof(*km_in), 0);
+	lptr_in->buf_hdr.has_data = 0;
+	lptr_in->buf_hdr.len = KM_IN_SIZE;
+	memset(lptr_in->payload, 'A', KM_IN_SIZE);
+	((uint32_t*)&lptr_in->payload[0])[0] = 0x30038001;
+	((uint32_t*)&lptr_in->payload[0])[1] = 0x3;
 
 	if (qemu_fuzzfile) {
 		FILE *fin = fopen(qemu_fuzzfile, "rb");
 		if (fin) {
 			fprintf(stderr, "%s: reading input buffer from %s\n",
 					__func__, qemu_fuzzfile);
-			fread(lptr_in, 1, size_in, fin);
+			size_t size = KM_IN_SIZE;
+			size = 256;
+			fread(lptr_in->payload, 1, size, fin);
 			fclose(fin);
 		}
 		fprintf(stderr, "%s: input buffer %08x %08x %08x %08x\n",
 				__func__,
-				((uint32_t*)lptr_in)[0],
-				((uint32_t*)lptr_in)[1],
-				((uint32_t*)lptr_in)[2],
-				((uint32_t*)lptr_in)[3]);
+				((uint32_t*)lptr_in->payload)[0],
+				((uint32_t*)lptr_in->payload)[1],
+				((uint32_t*)lptr_in->payload)[2],
+				((uint32_t*)lptr_in->payload)[3]);
 	}
-	unlock_user(lptr_in, ptr_in, size_in);
+	unlock_user(lptr_in, km_in, sizeof(*km_in));
 
 #ifdef TARGET_ARM
 	CPUARMState *env = cpu_env;
 
 	fprintf(stderr, "before set reg\n");
+	env->regs[2] = 0x65;
 	env->regs[3] = (uint32_t)host_buf;
+	//env->regs[3] = (uint32_t)0x41414141; //check that this generates a SIGSEGV to ensure we can detect them
 	env->regs[14] = 0xffff0f42;
-	env->regs[15] = (uint32_t)(0x16120 + 0xfff8f000 - 0x1000);
-
-	//load_bias=00000000fff8f000 entry=00000000fff94d50 ehdr->e_entry=0000000000005d50
-	//the "entry" in ELF is at 0x15d50 in the disassembler due to the load offset
-	//being 0x10000
-	//
-	//So we need to add the load_bias and subtract this offset.
-	//It would be better to propagate this info from the ELF parser though
+	env->regs[15] = teegris_cur_ta_invoke_ep(cpu_env);
+	//env->regs[15] = (uint32_t)(0x16120 + 0xfff8f000 - 0x1000);
 	fprintf(stderr, "after set reg pc=%08x\n", env->regs[15]);
 #endif
 }
 
-static void tz_invoke_direct_vaultkeeper(void *cpu_env)
+static void tz_update_param(size_t *pparam, const char *param_name)
+{
+	char *size_in_str = getenv(param_name);
+	unsigned long parsed_size = 0;
+	if (size_in_str) {
+		parsed_size = strtoul(size_in_str, NULL, 0);
+	}
+	if (parsed_size) {
+		*pparam = parsed_size;
+	}
+}
+
+static void tz_invoke_direct_generic(void *cpu_env)
 {
 	struct tz_cmd_host_buf {
 		uint32_t ptr_in;
-		uint32_t padding;
+		uint32_t ptr_in_size;
 		uint32_t ptr_out;
-		uint32_t padding2;
+		uint32_t ptr_out_size;
+		uint32_t ptr3;
+		uint32_t ptr3_size;
+		uint32_t ptr4;
+		uint32_t ptr4_size;
 	} __attribute__((packed));
 
 	size_t size_in = 0xa4c8;
+	tz_update_param(&size_in, "TEEGRIS_BUF_IN_SIZE");
 	void *ptr_in = tz_alloc32(size_in);
 
 	size_t size_out = 0xa4d4;
+	tz_update_param(&size_out, "TEEGRIS_BUF_OUT_SIZE");
 	void *ptr_out = tz_alloc32(size_out);
 
 	struct tz_cmd_host_buf *host_buf = NULL;
@@ -12183,8 +12277,14 @@ static void tz_invoke_direct_vaultkeeper(void *cpu_env)
 	struct tz_cmd_host_buf *lhost_buf = lock_user(VERIFY_WRITE, host_buf, sizeof(*host_buf), 0);
 	{
 		lhost_buf->ptr_in = (uint32_t)ptr_in;
+		lhost_buf->ptr_in_size = size_in;
 		lhost_buf->ptr_out = (uint32_t)ptr_out;
-		lhost_buf->padding = lhost_buf->padding2 = 0x41414141;
+		lhost_buf->ptr_out_size = size_out;
+		
+		lhost_buf->ptr3 = (uint32_t)ptr_in;
+		lhost_buf->ptr3_size = size_in;
+		lhost_buf->ptr4 = (uint32_t)ptr_in;
+		lhost_buf->ptr4_size = size_in;
 	}
 	unlock_user(lhost_buf, host_buf, sizeof(*host_buf));
 
@@ -12217,17 +12317,130 @@ static void tz_invoke_direct_vaultkeeper(void *cpu_env)
 	CPUARMState *env = cpu_env;
 
 	fprintf(stderr, "before set reg\n");
-	env->regs[2] = 7 | ((6 << 0x1c) >> 0x18);
+
+	//TODO: on successful return we need to get back here
+	//and invoke another handler
+	size_t opcode = 1;
+	tz_update_param(&opcode, "TEEGRIS_OPCODE_BASE");
+	env->regs[1] = opcode;
+
+	size_t param_types = 7 | ((6 << 0x1c) >> 0x18);
+	tz_update_param(&param_types, "TEEGRIS_PARAM_TYPES");
+	env->regs[2] = param_types;
+
 	env->regs[3] = (uint32_t)host_buf;
 	env->regs[14] = 0xffff0f42;
-	env->regs[15] = (uint32_t)((0x11c64ull - 0x10000ull) + 0xfffc4000ull);
+	//the uncrappy version
+	env->regs[15] = teegris_cur_ta_invoke_ep(cpu_env);
+	fprintf(stderr, "after set reg pc=%08x\n", env->regs[15]);
+#endif
+    CPUState *cpu = ENV_GET_CPU(env);
+	tb_flush(cpu);
+}
 
-	//load_bias=00000000fff8f000 entry=00000000fff94d50 ehdr->e_entry=0000000000005d50
-	//the "entry" in ELF is at 0x15d50 in the disassembler due to the load offset
-	//being 0x10000
-	//
-	//So we need to add the load_bias and subtract this offset.
-	//It would be better to propagate this info from the ELF parser though
+static void tz_invoke_direct_generic_inline(void *cpu_env)
+{
+	struct tz_cmd_host_buf {
+		uint32_t ptr_in;
+		uint32_t ptr_in_size;
+		uint32_t ptr_out;
+		uint32_t ptr_out_size;
+		uint32_t ptr3;
+		uint32_t ptr3_size;
+		uint32_t ptr4;
+		uint32_t ptr4_size;
+	} __attribute__((packed));
+
+	struct fuzz_params {
+		uint32_t param_types;
+		uint32_t size_in;
+		uint32_t size_out;
+		uint32_t opcode;
+	} __attribute__((packed));
+
+	struct fuzz_params fuzz_params = {};
+
+	if (!qemu_fuzzfile)
+	{
+		fprintf(stderr, "%s: no input file\n", __func__);
+		exit(-1);
+	}
+	FILE *fin = fopen(qemu_fuzzfile, "rb");
+	if (fin) {
+		fprintf(stderr, "%s: reading input buffer from %s\n",
+				__func__, qemu_fuzzfile);
+	}
+	else {
+		fprintf(stderr, "%s: failed to open the input file\n", __func__);
+		exit(-1);
+	}
+	if (fread(&fuzz_params, 1, sizeof(fuzz_params), fin) != sizeof(fuzz_params)) {
+		fprintf(stderr, "%s: failed to read fuzz params\n", __func__);
+		exit(-1);
+	}
+
+#define BUFSIZE_LIMIT 0xf0000
+
+	size_t size_in = fuzz_params.size_in;
+	//if a variable is exported, it overrides the value from
+	//the file
+	tz_update_param(&size_in, "TEEGRIS_BUF_IN_SIZE");
+	if (size_in > BUFSIZE_LIMIT) {
+		fprintf(stderr, "%s: input size too big\n", __func__);
+		exit(-1);
+	}
+	void *ptr_in = tz_alloc32(size_in);
+
+	size_t size_out = fuzz_params.size_out;
+	//if a variable is exported, it overrides the value from
+	//the file
+	tz_update_param(&size_out, "TEEGRIS_BUF_OUT_SIZE");
+	if (size_out > BUFSIZE_LIMIT) {
+		fprintf(stderr, "%s: output size too big\n", __func__);
+		exit(-1);
+	}
+	void *ptr_out = tz_alloc32(size_out);
+
+	struct tz_cmd_host_buf *host_buf = NULL;
+	host_buf = tz_alloc32(sizeof(*host_buf));
+	struct tz_cmd_host_buf *lhost_buf = lock_user(VERIFY_WRITE, host_buf, sizeof(*host_buf), 0);
+	{
+		lhost_buf->ptr_in = (uint32_t)ptr_in;
+		lhost_buf->ptr_in_size = size_in;
+		lhost_buf->ptr_out = (uint32_t)ptr_out;
+		lhost_buf->ptr_out_size = size_out;
+		
+		lhost_buf->ptr3 = (uint32_t)ptr_in;
+		lhost_buf->ptr3_size = size_in;
+		lhost_buf->ptr4 = (uint32_t)ptr_in;
+		lhost_buf->ptr4_size = size_in;
+	}
+	unlock_user(lhost_buf, host_buf, sizeof(*host_buf));
+
+	void *lptr_in = lock_user(VERIFY_WRITE, ptr_in, size_in, 0);
+	{
+		memset(lptr_in, 'A', size_in);
+	}
+	fread(lptr_in, 1, size_in, fin);
+	unlock_user(lptr_in, ptr_in, size_in);
+	fclose(fin);
+
+
+#ifdef TARGET_ARM
+	CPUARMState *env = cpu_env;
+
+	fprintf(stderr, "before set reg\n");
+
+	env->regs[1] = fuzz_params.opcode;
+
+	//shell variables override file contents
+	tz_update_param(&fuzz_params.param_types, "TEEGRIS_PARAM_TYPES");
+	env->regs[2] = fuzz_params.param_types;
+
+	env->regs[3] = (uint32_t)host_buf;
+	env->regs[14] = 0xffff0f42;
+	//the uncrappy version
+	env->regs[15] = teegris_cur_ta_invoke_ep(cpu_env);
 	fprintf(stderr, "after set reg pc=%08x\n", env->regs[15]);
 #endif
     CPUState *cpu = ENV_GET_CPU(env);
@@ -12278,6 +12491,11 @@ static abi_long do_syscall_teegris(void *cpu_env, int num, abi_long arg1,
 				offset <<= 0xc;
 
 				flags = MAP_PRIVATE;
+
+				if (fd == 0x55bbccdd) {
+					fd = 0xffffffff;
+				}
+
 				if (fd == 0xffffffff || (fd == 0xffffffffffffffffull)) {
 					flags |= MAP_ANON;
 				}
@@ -12490,7 +12708,10 @@ done_teegris_open:
 							tz_invoke_direct_keymaster(cpu_env);
 						}
 						else if (cmd == 888) {
-							tz_invoke_direct_vaultkeeper(cpu_env);
+							tz_invoke_direct_generic(cpu_env);
+						}
+						else if (cmd == 999) {
+							tz_invoke_direct_generic_inline(cpu_env);
 						}
 
 						put_user_u32(cmd, tmp);

@@ -1,0 +1,22 @@
+diff --git a/afl-fuzz.c b/afl-fuzz.c
+index a4b0e15..1543857 100644
+--- a/afl-fuzz.c
++++ b/afl-fuzz.c
+@@ -6934,7 +6934,7 @@ EXP_ST void check_binary(u8* fname) {
+          "    QEMU or Unicorn mode (-Q or -U). This is probably not what you want -\n"
+          "    this setup will be slow and offer no practical benefits.\n");
+ 
+-    FATAL("Instrumentation found in -Q or -U mode");
++    //FATAL("Instrumentation found in -Q or -U mode");
+ 
+   }
+ 
+@@ -7991,7 +7991,7 @@ int main(int argc, char** argv) {
+ 
+   start_time = get_cur_time();
+ 
+-  if (qemu_mode)
++  if (0 && qemu_mode)
+     use_argv = get_qemu_argv(argv[0], argv + optind, argc - optind);
+   else
+     use_argv = argv + optind;
