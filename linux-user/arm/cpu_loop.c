@@ -148,6 +148,20 @@ segv:
     queue_signal(env, info.si_signo, QEMU_SI_FAULT, &info);
 }
 
+//TODO: use a shared header with ../syscall.c
+#define QEMU_LINUX_USER_ARM_KTRAP_TEEGRIS_DONE 0xffff0f42
+#define QEMU_LINUX_USER_ARM_KTRAP_TEEGRIS_SUCCESS 0xffff0f62
+#define QEMU_LINUX_USER_ARM_KTRAP_TEEGRIS_PERSIST 0xffff0f82
+
+typedef void (*qemu_linux_user_arm_afl_updater)(void *cpu_env);
+
+static qemu_linux_user_arm_afl_updater afl_updater;
+void qemu_linux_user_arm_register_afl_updater(
+		qemu_linux_user_arm_afl_updater callback)
+{
+	afl_updater = callback;
+}
+
 /* Handle a jump to the kernel code page.  */
 static int
 do_kernel_trap(CPUARMState *env)
@@ -158,15 +172,32 @@ do_kernel_trap(CPUARMState *env)
 
     switch (env->regs[15]) {
 		printf("%s:pc=%08x\n", __func__, env->regs[15]);
-	case 0xffff0f42:
-		//TEEGRIS fuzzer return value
+	case QEMU_LINUX_USER_ARM_KTRAP_TEEGRIS_SUCCESS:
+		//TEEGRIS fuzzer progress indicator
+		//we use this value to check that the tested binary
+		//has reached a previously unreachable block
+		//and check for this string in the shell script
+		printf("%s: TEEGRIS PC_SUCCESS\n", __func__);
+		exit(0);
+		break;
+	case QEMU_LINUX_USER_ARM_KTRAP_TEEGRIS_DONE:
+		//TEEGRIS fuzzer normal exit
 		printf("%s: TEEGRIS fuzzing done OK\n", __func__);
 		exit(0);
 		break;
-	case 0xffff0f62:
-		//TEEGRIS fuzzer progress indicator
-		printf("%s: TEEGRIS PC_SUCCESS\n", __func__);
-		exit(0);
+	case QEMU_LINUX_USER_ARM_KTRAP_TEEGRIS_PERSIST:
+		printf("%s: TEEGRIS fuzzing persist iteration\n", __func__);
+		if (!__AFL_LOOP(3000)) {
+			exit(0);
+		}
+		if (afl_updater) {
+			//ensure we resume with the correct state
+			//to enter the TA entrypoint
+			afl_updater(env);
+		}
+		else {
+			exit(-1);
+		}
 		break;
     case 0xffff0fa0: /* __kernel_memory_barrier */
         /* ??? No-op. Will need to do better for SMP.  */

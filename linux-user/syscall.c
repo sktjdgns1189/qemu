@@ -12073,6 +12073,17 @@ static struct teegris_fake_fd teegris_fake_fds[] = {
 	TEEGRIS_MAKE_FAKE_FD(TEEGRIS_FAKE_FILE_DEV_SSAPI, "dev://ssapi"),
 };
 
+//TODO: use a shared header with arm/cpu-loop.c
+#define QEMU_LINUX_USER_ARM_KTRAP_TEEGRIS_DONE 0xffff0f42
+#define QEMU_LINUX_USER_ARM_KTRAP_TEEGRIS_SUCCESS 0xffff0f62
+#define QEMU_LINUX_USER_ARM_KTRAP_TEEGRIS_PERSIST 0xffff0f82
+
+#ifndef TARGET_AARCH64
+typedef void (*qemu_linux_user_arm_afl_updater)(void *cpu_env);
+extern void qemu_linux_user_arm_register_afl_updater(
+		qemu_linux_user_arm_afl_updater callback);
+#endif
+
 //TODO: make a per-thread context struct
 static uint64_t epoll_data;
 
@@ -12111,13 +12122,18 @@ static uint32_t teegris_cur_ta_invoke_ep(void *cpu_env)
 	TaskState *ts;
 	cpu = ENV_GET_CPU(env);
 	ts = (TaskState *)cpu->opaque;
-	uint32_t ta_ep = 0;
+
+	//currently the only scenario where we end up here multiple
+	//times is during AFL persistent fuzzing
+	//since TA EP does not change within one TA we only call
+	//objdump once as it's VERY slow
+	static uint32_t ta_ep = 0;
 	struct image_info *info = ts->info;
 	if (!info) {
 		fprintf(stderr, "%s: failed to get image info\n", __func__);
 		exit(-1);
 	}
-	else {
+	else if (!ta_ep) {
 		char *str = NULL;
 		str = lock_user_string(info->file_string);
 		fprintf(stderr, "%s: image name '%s'\n",
@@ -12232,7 +12248,7 @@ static void tz_invoke_direct_keymaster(void *cpu_env)
 	env->regs[2] = 0x65;
 	env->regs[3] = (uint32_t)host_buf;
 	//env->regs[3] = (uint32_t)0x41414141; //check that this generates a SIGSEGV to ensure we can detect them
-	env->regs[14] = 0xffff0f42;
+	env->regs[14] = QEMU_LINUX_USER_ARM_KTRAP_TEEGRIS_DONE;
 	env->regs[15] = teegris_cur_ta_invoke_ep(cpu_env);
 	//env->regs[15] = (uint32_t)(0x16120 + 0xfff8f000 - 0x1000);
 	fprintf(stderr, "after set reg pc=%08x\n", env->regs[15]);
@@ -12329,7 +12345,7 @@ static void tz_invoke_direct_generic(void *cpu_env)
 	env->regs[2] = param_types;
 
 	env->regs[3] = (uint32_t)host_buf;
-	env->regs[14] = 0xffff0f42;
+	env->regs[14] = QEMU_LINUX_USER_ARM_KTRAP_TEEGRIS_PERSIST;
 	//the uncrappy version
 	env->regs[15] = teegris_cur_ta_invoke_ep(cpu_env);
 	fprintf(stderr, "after set reg pc=%08x\n", env->regs[15]);
@@ -12363,7 +12379,7 @@ static void tz_invoke_direct_generic_inline(void *cpu_env)
 	if (!qemu_fuzzfile)
 	{
 		fprintf(stderr, "%s: no input file\n", __func__);
-		exit(-1);
+		goto fail;
 	}
 	FILE *fin = fopen(qemu_fuzzfile, "rb");
 	if (fin) {
@@ -12372,11 +12388,11 @@ static void tz_invoke_direct_generic_inline(void *cpu_env)
 	}
 	else {
 		fprintf(stderr, "%s: failed to open the input file\n", __func__);
-		exit(-1);
+		goto fail;
 	}
 	if (fread(&fuzz_params, 1, sizeof(fuzz_params), fin) != sizeof(fuzz_params)) {
 		fprintf(stderr, "%s: failed to read fuzz params\n", __func__);
-		exit(-1);
+		goto fail;
 	}
 
 #define BUFSIZE_LIMIT 0xf0000
@@ -12387,9 +12403,18 @@ static void tz_invoke_direct_generic_inline(void *cpu_env)
 	tz_update_param(&size_in, "TEEGRIS_BUF_IN_SIZE");
 	if (size_in > BUFSIZE_LIMIT) {
 		fprintf(stderr, "%s: input size too big\n", __func__);
-		exit(-1);
+		goto fail;
 	}
-	void *ptr_in = tz_alloc32(size_in);
+	static void *ptr_in = NULL;
+	static size_t last_size_in = 0;
+	//performance optimization for persistent fuzzing
+	//only reallocate if the requested buffer is bigger
+	//we might miss some OOB accesses.
+	//If that's a big deal, just add an "|| 1" case
+	if (!ptr_in || last_size_in < size_in) {
+		ptr_in = tz_alloc32(size_in);
+		last_size_in = size_in;
+	}
 
 	size_t size_out = fuzz_params.size_out;
 	//if a variable is exported, it overrides the value from
@@ -12397,9 +12422,18 @@ static void tz_invoke_direct_generic_inline(void *cpu_env)
 	tz_update_param(&size_out, "TEEGRIS_BUF_OUT_SIZE");
 	if (size_out > BUFSIZE_LIMIT) {
 		fprintf(stderr, "%s: output size too big\n", __func__);
-		exit(-1);
+		goto fail;
 	}
-	void *ptr_out = tz_alloc32(size_out);
+	static void *ptr_out = NULL;
+	static size_t last_size_out = 0;
+	//performance optimization for persistent fuzzing
+	//only reallocate if the requested buffer is bigger
+	//we might miss some OOB accesses.
+	//If that's a big deal, just add an "|| 1" case
+	if (!ptr_out || last_size_out < size_out) {
+		ptr_out = tz_alloc32(size_out);
+		last_size_out = size_out;
+	}
 
 	struct tz_cmd_host_buf *host_buf = NULL;
 	host_buf = tz_alloc32(sizeof(*host_buf));
@@ -12425,26 +12459,38 @@ static void tz_invoke_direct_generic_inline(void *cpu_env)
 	unlock_user(lptr_in, ptr_in, size_in);
 	fclose(fin);
 
-
 #ifdef TARGET_ARM
 	CPUARMState *env = cpu_env;
 
 	fprintf(stderr, "before set reg\n");
 
-	env->regs[1] = fuzz_params.opcode;
+	size_t opcode = fuzz_params.opcode;
+	tz_update_param(&opcode, "TEEGRIS_OPCODE_BASE");
+	env->regs[1] = opcode;
 
 	//shell variables override file contents
 	tz_update_param(&fuzz_params.param_types, "TEEGRIS_PARAM_TYPES");
 	env->regs[2] = fuzz_params.param_types;
 
 	env->regs[3] = (uint32_t)host_buf;
-	env->regs[14] = 0xffff0f42;
+	env->regs[14] = QEMU_LINUX_USER_ARM_KTRAP_TEEGRIS_PERSIST;
 	//the uncrappy version
 	env->regs[15] = teegris_cur_ta_invoke_ep(cpu_env);
 	fprintf(stderr, "after set reg pc=%08x\n", env->regs[15]);
 #endif
-    CPUState *cpu = ENV_GET_CPU(env);
+	CPUState *cpu = ENV_GET_CPU(env);
 	tb_flush(cpu);
+	return;
+
+fail:
+	//do in a block to avoid uninitialized var access
+	{
+		CPUARMState *env = cpu_env;
+		env->regs[14] = QEMU_LINUX_USER_ARM_KTRAP_TEEGRIS_PERSIST;
+		env->regs[15] = QEMU_LINUX_USER_ARM_KTRAP_TEEGRIS_PERSIST;
+		CPUState *cpu = ENV_GET_CPU(env);
+		tb_flush(cpu);
+	}
 }
 
 static abi_long do_syscall_teegris(void *cpu_env, int num, abi_long arg1,
@@ -12597,6 +12643,7 @@ done_teegris_open:
 		case 12://panic
 			fprintf(stderr, "%s: panic\n", __func__);
 			if (1) {
+				assert(0);
 				exit(-42);
 			}
 			else {
@@ -12670,6 +12717,20 @@ done_teegris_open:
 				}
 			}
 			break;
+		case 35://thread_kill
+			//if we're fuzzing with AFL we should exit from arm/cpu-loop.c
+			//otherwise it's likely an error handled by the TA
+			//or a stack corruption
+			assert(0);
+			exit(-42);
+			break;
+		case 46://exit
+			//if we're fuzzing with AFL we should exit from arm/cpu-loop.c
+			//otherwise it's likely an error handled by the TA
+			//or a stack corruption
+			assert(0);
+			exit(-42);
+			break;
 		case 59://recvmsg
 			//iovec at offset 0x28
 			//iov_len at iovec + 8
@@ -12711,6 +12772,11 @@ done_teegris_open:
 							tz_invoke_direct_generic(cpu_env);
 						}
 						else if (cmd == 999) {
+//TODO: persistent mode for aarch64
+#ifndef TARGET_AARCH64
+							qemu_linux_user_arm_register_afl_updater(
+									tz_invoke_direct_generic_inline);
+#endif //TARGET_ARM
 							tz_invoke_direct_generic_inline(cpu_env);
 						}
 
