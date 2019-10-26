@@ -12120,7 +12120,7 @@ static uint32_t teegris_cur_ta_invoke_ep(void *cpu_env)
 	CPUARMState *env = cpu_env;
 	CPUState *cpu;
 	TaskState *ts;
-	cpu = ENV_GET_CPU(env);
+	cpu = env_cpu(env);
 	ts = (TaskState *)cpu->opaque;
 
 	//currently the only scenario where we end up here multiple
@@ -12350,7 +12350,7 @@ static void tz_invoke_direct_generic(void *cpu_env)
 	env->regs[15] = teegris_cur_ta_invoke_ep(cpu_env);
 	fprintf(stderr, "after set reg pc=%08x\n", env->regs[15]);
 #endif
-    CPUState *cpu = ENV_GET_CPU(env);
+    CPUState *cpu = env_cpu(env);
 	tb_flush(cpu);
 }
 
@@ -12478,7 +12478,7 @@ static void tz_invoke_direct_generic_inline(void *cpu_env)
 	env->regs[15] = teegris_cur_ta_invoke_ep(cpu_env);
 	fprintf(stderr, "after set reg pc=%08x\n", env->regs[15]);
 #endif
-	CPUState *cpu = ENV_GET_CPU(env);
+	CPUState *cpu = env_cpu(env);
 	tb_flush(cpu);
 	return;
 
@@ -12488,7 +12488,7 @@ fail:
 		CPUARMState *env = cpu_env;
 		env->regs[14] = QEMU_LINUX_USER_ARM_KTRAP_TEEGRIS_PERSIST;
 		env->regs[15] = QEMU_LINUX_USER_ARM_KTRAP_TEEGRIS_PERSIST;
-		CPUState *cpu = ENV_GET_CPU(env);
+		CPUState *cpu = env_cpu(env);
 		tb_flush(cpu);
 	}
 }
@@ -12498,7 +12498,7 @@ static abi_long do_syscall_teegris(void *cpu_env, int num, abi_long arg1,
                             abi_long arg5, abi_long arg6, abi_long arg7,
                             abi_long arg8)
 {
-    CPUState *cpu = ENV_GET_CPU(cpu_env);
+    CPUState *cpu = env_cpu(cpu_env);
     abi_long ret;
 	ret = 0;
 	uint64_t tmp;
